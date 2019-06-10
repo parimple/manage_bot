@@ -39,7 +39,6 @@ class Role(Base):
     id = Column(INTEGER, primary_key=True, nullable=False)
     name = Column(TEXT)
     type = Column(TEXT)
-    limit = Column(INTEGER)
     parent_id = Column(INTEGER, ForeignKey('role.id'))
     parent = relationship('Role', remote_side=[id])
 
