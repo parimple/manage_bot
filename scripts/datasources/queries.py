@@ -7,13 +7,11 @@ from datasources import session
 def get_top_members(amount):
     query = session.query(MemberScore.member_id, func.sum(MemberScore.score).label('sum_points')). \
         group_by(MemberScore.member_id).order_by(desc('sum_points')).all()
-    print(query[0:amount])
     return query[0:amount]
 
 
 def get_top_roles(amount):
     query = session.query(Role.id).filter(Role.type == 'top').all()
-    print(query[0:amount])
     return query[0:amount]
 
 
@@ -66,11 +64,7 @@ def set_weeks():
         name='Sunday',
         type='week'
     )
-    all_score = Score(
-        name='AllScore',
-        type='all_score'
-    )
-    session.add_all([monday, tuesday, wednesday, thursday, friday, saturday, sunday, all_score])
+    session.add_all([monday, tuesday, wednesday, thursday, friday, saturday, sunday])
 
 
 def check_role_by_type(role_type):

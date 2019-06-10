@@ -34,12 +34,21 @@ async def minute():
         if date_db.strftime("%A") != date_now.strftime("%A"):
             reset_points_global(date_now.strftime("%A"))
 
-        if date_now.hour == date_db.hour:
+        if date_now.hour != date_db.hour:
             members_top = get_top_members(GUILD['top'])
             roles_top = get_top_roles(GUILD['top'])
 
-            for role_top, member_top in zip(roles_top, members_top):
+            for (role_top_id,), member_top in zip(roles_top, members_top):
+                role_top = guild.get_role(role_top_id)
+                for member in role_top.members:
+                    await member.remove_roles(role_top)
 
+                member_top_id, member_top_score = member_top
+                member = guild.get_member(member_top_id)
+                if member is None:
+                    continue
+                else:
+                    await member.add_roles(role_top, reason='top add')
 
         set_guild_date(GUILD['id'], date_now)
         session.commit()
@@ -89,7 +98,7 @@ async def on_message(message):
     if check_member(message.author.id) is False:
         set_member(message.author.id, message.author.name, message.author.discriminator)
         session.commit()
-        set_member_scores(message.author.id, ['week', 'all_score'])
+        set_member_scores(message.author.id, ['week'])
         session.commit()
 
     add_member_score(message.author.id, [date_now.strftime("%A"), 'AllScore'], points)
