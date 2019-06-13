@@ -1,4 +1,3 @@
-#!/usr/local/Cellar/python/3.6.5_1/bin/python3
 import asyncio
 from datetime import datetime
 
@@ -66,6 +65,7 @@ async def on_ready():
         for i in range(1, GUILD['top']+1):
             role = await guild.create_role(name=i, hoist=True)
             set_role(role.id, i, 'top')
+            session.commit()
 
     if check_guild_by_id(GUILD['id']) is False:
         set_guild_by_id(GUILD['id'], date_now)
