@@ -69,7 +69,6 @@ def set_weeks():
 
 def check_role_by_type(role_type):
     query = session.query(exists().where(Role.type == role_type)).scalar()
-    print(query)
     return query
 
 
@@ -85,6 +84,7 @@ def set_role(role_id, role_name, role_type):
         type=role_type,
     )
     session.add(role)
+    session.commit()
 
 
 def check_guild_by_id(guild_id):
