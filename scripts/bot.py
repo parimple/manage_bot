@@ -14,6 +14,8 @@ if not engine.dialect.has_table(engine, 'member'):
 
 client = discord.Client()
 
+invites = []
+
 
 async def presence():
     while True:
@@ -75,8 +77,8 @@ async def on_ready():
     print(client.user.name)
     print('---------------')
     print('This bot is ready for action!')
-    client.loop.create_task(presence())
-    client.loop.create_task(minute())
+    # client.loop.create_task(presence())
+    # client.loop.create_task(minute())
 
 
 @client.event
