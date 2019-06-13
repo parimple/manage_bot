@@ -35,6 +35,13 @@ def reset_points_global(day):
     return
 
 
+def reset_points_by_id(member_id):
+    session.query(MemberScore) \
+        .filter(MemberScore.member_id == member_id) \
+        .update({MemberScore.score: 0})
+    return
+
+
 def set_weeks():
     monday = Score(
         name='Monday',

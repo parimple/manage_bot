@@ -41,14 +41,18 @@ async def minute():
 
             for (role_top_id,), member_top in zip(roles_top, members_top):
                 role_top = guild.get_role(role_top_id)
-                for member in role_top.members:
-                    await member.remove_roles(role_top)
 
                 member_top_id, member_top_score = member_top
                 member = guild.get_member(member_top_id)
                 if member is None:
+                    reset_points_by_id(member_top_id)
                     continue
                 else:
+                    for member_old in role_top.members:
+                        if member_old.id == member.id:
+                            continue
+                        else:
+                            await member_old.remove_roles(role_top)
                     await member.add_roles(role_top, reason='top add')
 
         set_guild_date(GUILD['id'], date_now)
@@ -77,8 +81,8 @@ async def on_ready():
     print(client.user.name)
     print('---------------')
     print('This bot is ready for action!')
-    # client.loop.create_task(presence())
-    # client.loop.create_task(minute())
+    client.loop.create_task(presence())
+    client.loop.create_task(minute())
 
 
 @client.event
@@ -105,12 +109,19 @@ async def on_message(message):
 
     add_member_score(message.author.id, [date_now.strftime("%A"), 'AllScore'], points)
     session.commit()
-
-    if message.content:
-        if message.author.id == BOT['owner'] and message.content[0] == BOT['prefix'] and len(args) > 0:
-            args2 = message.content[1:]
-            if args2 == 'dateTime':
-                print(date_now.strftime("%A"))
+    if not message.attachments and message.author.id == BOT['owner'] and message.content[0] == BOT['prefix']:
+        command = args.pop(0)[1:]
+        if command == 'dateTime':
+            print(date_now.strftime("%A"))
+        elif command == 'reset':
+            if len(args) > 0:
+                if len(message.mentions) > 0:
+                    print(message.mentions[0].id)
+                else:
+                    print(message.content)
+            else:
+                print(message.content)
+            print('reset')
 
 
 if __name__ == '__main__':
