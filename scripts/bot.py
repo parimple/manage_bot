@@ -34,6 +34,11 @@ async def minute():
 
         if date_db.strftime("%A") != date_now.strftime("%A"):
             reset_points_global(date_now.strftime("%A"))
+            role_everyone = guild.get_role(GUILD['fake_everyone_id'])
+            role_here = guild.get_role(GUILD['fake_here_id'])
+            for member in role_everyone.members:
+                await member.remove_roles(role_everyone)
+                await member.remove_roles(role_here)
 
         if date_now.hour != date_db.hour:
             members_top = get_top_members(GUILD['top'])
@@ -52,7 +57,7 @@ async def minute():
                         if member_old.id == member.id:
                             continue
                         else:
-                            await member_old.remove_roles(role_top)
+                            await member_old.remove_roles(role_top, reason='top remove')
                     await member.add_roles(role_top, reason='top add')
 
         set_guild_date(GUILD['id'], date_now)
@@ -88,11 +93,31 @@ async def on_ready():
 @client.event
 async def on_message(message):
     date_now = datetime.now()
+
     if message.author.bot:
         return
 
     args = message.content.split(' ')
     if len(args) < 1:
+        return
+
+    if message.role_mentions:
+        await message.author.add_roles(message.guild.get_role(GUILD['fake_everyone_id']), reason='everyone ping')
+        await message.author.add_roles(message.guild.get_role(GUILD['fake_here_id']), reason='here ping')
+
+    if not message.attachments and message.author.id == BOT['owner'] and message.content[0] == BOT['prefix']:
+        command = args.pop(0)[1:]
+        if command == 'dateTime':
+            print(date_now.strftime("%A"))
+        elif command == 'reset':
+            if len(args) > 0:
+                if len(message.mentions) > 0:
+                    print(message.mentions[0].id)
+                else:
+                    print(message.content)
+            else:
+                print(message.content)
+            print('reset')
         return
 
     points = 0
@@ -109,19 +134,6 @@ async def on_message(message):
 
     add_member_score(message.author.id, [date_now.strftime("%A"), 'AllScore'], points)
     session.commit()
-    if not message.attachments and message.author.id == BOT['owner'] and message.content[0] == BOT['prefix']:
-        command = args.pop(0)[1:]
-        if command == 'dateTime':
-            print(date_now.strftime("%A"))
-        elif command == 'reset':
-            if len(args) > 0:
-                if len(message.mentions) > 0:
-                    print(message.mentions[0].id)
-                else:
-                    print(message.content)
-            else:
-                print(message.content)
-            print('reset')
 
 
 if __name__ == '__main__':
