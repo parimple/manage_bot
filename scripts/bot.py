@@ -5,7 +5,7 @@ import discord
 from queries import *
 import datasources.models
 import datasources.queries
-from mappings import BOT, GUILD
+from mappings import BOT, GUILD, COMMANDS
 from datasources import session, engine
 
 if not engine.dialect.has_table(engine, 'member'):
@@ -94,16 +94,21 @@ async def on_ready():
 async def on_message(message):
     date_now = datetime.now()
 
-    if message.author.bot:
+    if not message.content:
         return
 
-    args = message.content.split(' ')
-    if len(args) < 1:
+    if message.author.bot:
         return
 
     if message.role_mentions:
         await message.author.add_roles(message.guild.get_role(GUILD['fake_everyone_id']), reason='everyone ping')
         await message.author.add_roles(message.guild.get_role(GUILD['fake_here_id']), reason='here ping')
+
+    args = message.content.split(' ')
+
+    for command in COMMANDS:
+        if command in args[0]:
+            return
 
     if not message.attachments and message.author.id == BOT['owner'] and message.content[0] == BOT['prefix']:
         command = args.pop(0)[1:]
@@ -118,7 +123,12 @@ async def on_message(message):
             else:
                 print(message.content)
             print('reset')
-        return
+        elif command == 'delTopRoles':
+            top_roles = get_top_roles(128)
+            for role_id, in top_roles:
+                print(role_id)
+                role = message.guild.get_role(role_id)
+                await role.delete()
 
     points = 0
     if len(args) > 32:
