@@ -66,6 +66,76 @@ async def minute():
 
 
 @client.event
+async def on_message(message):
+    date_now = datetime.now()
+
+    if not message.content:
+        return
+
+    if message.author.bot:
+        return
+
+    if message.role_mentions:
+        await message.author.add_roles(message.guild.get_role(GUILD['fake_everyone_id']), reason='everyone ping')
+        await message.author.add_roles(message.guild.get_role(GUILD['fake_here_id']), reason='here ping')
+
+    args = message.content.split(' ')
+
+    for command in COMMANDS:
+        if command in args[0]:
+            return
+
+    if not message.attachments and message.author.id == BOT['owner'] and message.content[0] == BOT['prefix']:
+
+        command = args.pop(0)[1:]
+        if command == 'dateTime':
+            print(date_now.strftime("%A"))
+        elif command == 'addNsfw':
+            members = message.guild.members
+            for member in members:
+                if (date_now - member.created_at).days < 14:
+                    await member.add_roles(message.guild.get_role(GUILD['nsfw_id']), reason='nsfw new account')
+
+        elif command == 'resetPoints':
+            if len(args) > 0:
+                if message.mentions:
+                    reset_points_by_id(message.mentions[0].id)
+                else:
+                    reset_points_by_id(args[0])
+            else:
+                print(message.content)
+        elif command == 'delTopRoles':
+            top_roles = get_top_roles(128)
+            for role_id, in top_roles:
+                print(role_id)
+                role = message.guild.get_role(role_id)
+                await role.delete()
+
+    points = 0
+    if len(args) > 32:
+        points += 32
+    else:
+        points += len(args)
+
+    if check_member(message.author.id) is False:
+        set_member(message.author.id, message.author.name, message.author.discriminator)
+        session.commit()
+        set_member_scores(message.author.id, ['week'])
+        session.commit()
+
+    add_member_score(message.author.id, [date_now.strftime("%A"), 'AllScore'], points)
+    session.commit()
+
+
+@client.event
+async def on_member_join(member):
+    date_now = datetime.now()
+    print(member)
+    # if (date_now - member.created_at).days < 7:
+    #     await member.add_roles(member.guild.get_role(GUILD['nsfw_id']), reason='nsfw new account')
+
+
+@client.event
 async def on_ready():
     date_now = datetime.now()
     guild = client.get_guild(GUILD['id'])
@@ -88,62 +158,6 @@ async def on_ready():
     print('This bot is ready for action!')
     client.loop.create_task(presence())
     client.loop.create_task(minute())
-
-
-@client.event
-async def on_message(message):
-    date_now = datetime.now()
-
-    if not message.content:
-        return
-
-    if message.author.bot:
-        return
-
-    if message.role_mentions:
-        await message.author.add_roles(message.guild.get_role(GUILD['fake_everyone_id']), reason='everyone ping')
-        await message.author.add_roles(message.guild.get_role(GUILD['fake_here_id']), reason='here ping')
-
-    args = message.content.split(' ')
-
-    for command in COMMANDS:
-        if command in args[0]:
-            return
-
-    if not message.attachments and message.author.id == BOT['owner'] and message.content[0] == BOT['prefix']:
-        command = args.pop(0)[1:]
-        if command == 'dateTime':
-            print(date_now.strftime("%A"))
-        elif command == 'reset':
-            if len(args) > 0:
-                if len(message.mentions) > 0:
-                    print(message.mentions[0].id)
-                else:
-                    print(message.content)
-            else:
-                print(message.content)
-            print('reset')
-        elif command == 'delTopRoles':
-            top_roles = get_top_roles(128)
-            for role_id, in top_roles:
-                print(role_id)
-                role = message.guild.get_role(role_id)
-                await role.delete()
-
-    points = 0
-    if len(args) > 32:
-        points += 32
-    else:
-        points += len(args)
-
-    if check_member(message.author.id) is False:
-        set_member(message.author.id, message.author.name, message.author.discriminator)
-        session.commit()
-        set_member_scores(message.author.id, ['week'])
-        session.commit()
-
-    add_member_score(message.author.id, [date_now.strftime("%A"), 'AllScore'], points)
-    session.commit()
 
 
 if __name__ == '__main__':
