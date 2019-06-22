@@ -112,11 +112,12 @@ def check_member(member_id):
     return query
 
 
-def set_member(member_id, member_name, member_discriminator):
+def set_member(member_id, member_name, member_discriminator, member_parent_id):
     new_member = Member(
         id=member_id,
         username=member_name,
-        discriminator=member_discriminator
+        discriminator=member_discriminator,
+        parent_id=member_parent_id
     )
     session.add(new_member)
 

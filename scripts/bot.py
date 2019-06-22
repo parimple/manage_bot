@@ -12,7 +12,6 @@ if not engine.dialect.has_table(engine, 'member'):
     datasources.models.Base.metadata.create_all(engine)
 
 client = discord.Client()
-
 invites = []
 
 
@@ -31,6 +30,11 @@ async def minute():
         guild = client.get_guild(GUILD['id'])
         date_db = get_guild_date(GUILD['id'])
         date_now = datetime.now()
+
+        invites_new = await guild.invites()
+        diff = list(set(invites_new) - set(invites))
+        if len(diff) > 0:
+            invites.extend(diff)
 
         if date_db.strftime("%A") != date_now.strftime("%A"):
             reset_points_global(date_now.strftime("%A"))
@@ -63,6 +67,31 @@ async def minute():
         set_guild_date(GUILD['id'], date_now)
         session.commit()
         await asyncio.sleep(60)
+
+
+@client.event
+async def on_member_join(member):
+    invites_old = invites.copy()
+    invites.clear()
+    invites.extend(await member.guild.invites())
+
+    try:
+        invite = discord.utils.find(lambda inv: inv.uses > discord.utils.get(invites_old, id=inv.id).uses, invites)
+    except AttributeError:
+        diff = list(set(invites) - set(invites_old))
+        if len(diff) > 0:
+            diff.sort(key=lambda inv: inv.created_at, reverse=True)
+            invite = diff[0]
+        else:
+            invite = None
+
+    if check_member(member.id) is False:
+        print('member join')
+        set_member(member.id, member.name, member.discriminator, invite.inviter.id)
+        session.commit()
+        set_member_scores(member.id, ['week'])
+        session.commit()
+    print(member, invite, invite.inviter)
 
 
 @client.event
@@ -118,27 +147,23 @@ async def on_message(message):
         points += len(args)
 
     if check_member(message.author.id) is False:
-        set_member(message.author.id, message.author.name, message.author.discriminator)
-        session.commit()
-        set_member_scores(message.author.id, ['week'])
-        session.commit()
+        if (date_now-message.author.joined_at).seconds > 60:
+            print('member message')
+            set_member(message.author.id, message.author.name, message.author.discriminator, None)
+            session.commit()
+            set_member_scores(message.author.id, ['week'])
+            session.commit()
 
     add_member_score(message.author.id, [date_now.strftime("%A"), 'AllScore'], points)
     session.commit()
 
 
 @client.event
-async def on_member_join(member):
-    date_now = datetime.now()
-    print(member)
-    # if (date_now - member.created_at).days < 7:
-    #     await member.add_roles(member.guild.get_role(GUILD['nsfw_id']), reason='nsfw new account')
-
-
-@client.event
 async def on_ready():
     date_now = datetime.now()
     guild = client.get_guild(GUILD['id'])
+    invites.extend(await guild.invites())
+
     if check_score_by_type('week') is False:
         set_weeks()
 
