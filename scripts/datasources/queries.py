@@ -132,8 +132,17 @@ def set_member_scores(member_id, types):
         session.add(member_score)
 
 
-def add_member_score(member_id, types, points):
-    member_scores = session.query(MemberScore).join(Score).\
-        filter((MemberScore.member_id == member_id) & (Score.name.in_(types))).all()
-    for member_score in member_scores:
-        member_score.score += points
+def add_member_score(member_id, day, points):
+    member_score = session.query(MemberScore).join(Score).\
+        filter((MemberScore.member_id == member_id) & (Score.name == day)).first()
+    member_score.score += points
+
+
+def get_member_parent_id(member_id):
+    query, = session.query(Member.parent_id).filter(Member.id == member_id).first()
+    return query
+
+
+def get_invited_count(member_id):
+    query = session.query(Member.id).filter(Member.parent_id == member_id).count()
+    return query

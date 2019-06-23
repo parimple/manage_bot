@@ -7,6 +7,7 @@ import datasources.models
 import datasources.queries
 from mappings import BOT, GUILD, COMMANDS
 from datasources import session, engine
+from random import randint
 
 if not engine.dialect.has_table(engine, 'member'):
     datasources.models.Base.metadata.create_all(engine)
@@ -86,12 +87,13 @@ async def on_member_join(member):
             invite = None
 
     if check_member(member.id) is False:
-        print('member join')
         set_member(member.id, member.name, member.discriminator, invite.inviter.id)
         session.commit()
         set_member_scores(member.id, ['week'])
         session.commit()
-    print(member, invite, invite.inviter)
+    join_logs = member.guild.get_channel(GUILD['join_logs_id'])
+    await join_logs.send('member: {}, display_name: {}, inviter: {}'
+                         .format(member.mention, member.display_name, invite.inviter))
 
 
 @client.event
@@ -114,32 +116,6 @@ async def on_message(message):
         if command in args[0]:
             return
 
-    if not message.attachments and message.author.id == BOT['owner'] and message.content[0] == BOT['prefix']:
-
-        command = args.pop(0)[1:]
-        if command == 'dateTime':
-            print(date_now.strftime("%A"))
-        elif command == 'addNsfw':
-            members = message.guild.members
-            for member in members:
-                if (date_now - member.created_at).days < 14:
-                    await member.add_roles(message.guild.get_role(GUILD['nsfw_id']), reason='nsfw new account')
-
-        elif command == 'resetPoints':
-            if len(args) > 0:
-                if message.mentions:
-                    reset_points_by_id(message.mentions[0].id)
-                else:
-                    reset_points_by_id(args[0])
-            else:
-                print(message.content)
-        elif command == 'delTopRoles':
-            top_roles = get_top_roles(128)
-            for role_id, in top_roles:
-                print(role_id)
-                role = message.guild.get_role(role_id)
-                await role.delete()
-
     points = 0
     if len(args) > 32:
         points += 32
@@ -148,14 +124,71 @@ async def on_message(message):
 
     if check_member(message.author.id) is False:
         if (date_now-message.author.joined_at).seconds > 60:
-            print('member message')
             set_member(message.author.id, message.author.name, message.author.discriminator, None)
             session.commit()
             set_member_scores(message.author.id, ['week'])
             session.commit()
-
-    add_member_score(message.author.id, [date_now.strftime("%A"), 'AllScore'], points)
+    add_member_score(message.author.id, date_now.strftime("%A"), points)
     session.commit()
+
+    parent_id = get_member_parent_id(message.author.id)
+
+    if parent_id:
+        if (check_member(parent_id)) and (randint(1, 100) < GUILD['rand_parent']):
+            add_member_score(parent_id, date_now.strftime("%A"), points)
+    session.commit()
+
+    if not message.attachments and message.content[0] == BOT['prefix']:
+        command = args.pop(0)[1:]
+
+        if command == 'profile':
+            inviter = message.guild.get_member(parent_id)
+            if inviter is None:
+                inviter_name = 'None'
+            else:
+                inviter_name = inviter.display_name
+            invited_count = get_invited_count(message.author.id)
+            embed = discord.Embed()
+            embed.add_field(name='invited people', value=invited_count, inline=True)
+            embed.set_footer(text="invited by {}".format(inviter_name))
+            await message.channel.send(embed=embed)
+            return
+
+        if message.author.id == BOT['owner']:
+            if command == 'dateTime':
+                print(date_now.strftime("%A"))
+            elif command == 'addNsfw':
+                members = message.guild.members
+                for member in members:
+                    if (date_now - member.created_at).days < 14:
+                        await member.add_roles(message.guild.get_role(GUILD['nsfw_id']), reason='nsfw new account')
+
+            elif command == 'resetPoints':
+                if len(args) > 0:
+                    if message.mentions:
+                        reset_points_by_id(message.mentions[0].id)
+                    else:
+                        reset_points_by_id(args[0])
+                else:
+                    print(message.content)
+                return
+            elif command == 'delTopRoles':
+                top_roles = get_top_roles(128)
+                for role_id, in top_roles:
+                    print(role_id)
+                    role = message.guild.get_role(role_id)
+                    await role.delete()
+                return
+            elif command == 'say':
+                await message.channel.send(' '.join(args))
+                await message.delete()
+            elif command == 'e':
+                await message.channel.send('@everyone')
+                await message.delete()
+            elif command == 'rgb':
+                message_rgb = await message.channel.send(GUILD['roles_rgb'])
+                await message_rgb.delete()
+                await message.delete()
 
 
 @client.event
@@ -184,6 +217,11 @@ async def on_ready():
     client.loop.create_task(presence())
     client.loop.create_task(minute())
 
+
+@client.event
+async def on_member_remove(member):
+    leave_logs = member.guild.get_channel(GUILD['leave_logs_id'])
+    await leave_logs.send('member: {}, display_name: {}'.format(member.mention, member.display_name))
 
 if __name__ == '__main__':
     try:
