@@ -87,13 +87,21 @@ async def on_member_join(member):
             invite = None
 
     if check_member(member.id) is False:
-        set_member(member.id, member.name, member.discriminator, invite.inviter.id)
+        if invite:
+            set_member(member.id, member.name, member.discriminator, invite.inviter.id)
+        else:
+            set_member(member.id, member.name, member.discriminator, None)
         session.commit()
         set_member_scores(member.id, ['week'])
         session.commit()
     join_logs = member.guild.get_channel(GUILD['join_logs_id'])
-    await join_logs.send('member: {}, display_name: {}, inviter: {}'
-                         .format(member.mention, member.display_name, invite.inviter))
+    if invite:
+        await join_logs.send('member: {}, display_name: {}, inviter: {}'
+                             .format(member.mention, member.display_name, invite.inviter))
+    else:
+        await join_logs.send('member: {}, display_name: {}, inviter: {}'
+                             .format(member.mention, member.display_name, None))
+
 
 
 @client.event
