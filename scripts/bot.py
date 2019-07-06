@@ -121,7 +121,7 @@ async def on_message(message):
     args = message.content.split(' ')
 
     for command in COMMANDS:
-        if command in args[0]:
+        if command in args[0].lower():
             return
 
     points = 0
