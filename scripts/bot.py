@@ -39,14 +39,20 @@ async def minute():
         if date_now.minute % 10 == 0:
             for channel in guild.voice_channels:
                 for member in channel.members:
-                    if member.voice.self_mute or member.voice.self_deaf:
+                    if check_member(member.id) is False:
+                        if (date_now - member.joined_at).seconds > 60:
+                            set_member(member.id, member.name, member.discriminator, None)
+                            session.commit()
+                            set_member_scores(member.id, ['week'])
+                            session.commit()
+                    if member.voice.self_mute or member.voice.self_deaf or member.bot:
                         continue
                     else:
                         if len(channel.members) > 1:
                             add_member_score(member.id, date_now.strftime("%A"), 10)
                             session.commit()
                         else:
-                            add_member_score(member.id, date_now.strftime("%A"), 5)
+                            add_member_score(member.id, date_now.strftime("%A"), 1)
                             session.commit()
 
         if date_db.strftime("%A") != date_now.strftime("%A"):
