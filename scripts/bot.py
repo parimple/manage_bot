@@ -36,6 +36,18 @@ async def minute():
         diff = list(set(invites_new) - set(invites))
         if len(diff) > 0:
             invites.extend(diff)
+        if date_now.minute % 10 == 0:
+            for channel in guild.voice_channels:
+                for member in channel.members:
+                    if member.voice.self_mute or member.voice.self_deaf:
+                        continue
+                    else:
+                        if len(channel.members) > 1:
+                            add_member_score(member.id, date_now.strftime("%A"), 10)
+                            session.commit()
+                        else:
+                            add_member_score(member.id, date_now.strftime("%A"), 5)
+                            session.commit()
 
         if date_db.strftime("%A") != date_now.strftime("%A"):
             reset_points_global(date_now.strftime("%A"))
@@ -103,7 +115,6 @@ async def on_member_join(member):
                              .format(member.mention, member.display_name, None))
 
 
-
 @client.event
 async def on_message(message):
     date_now = datetime.now()
@@ -123,11 +134,13 @@ async def on_message(message):
     for command in COMMANDS:
         if command in args[0].lower():
             return
-
     points = 0
     if len(args) > 32:
         points += 32
     else:
+        points += len(args)
+    nitro_booster = message.guild.get_role(GUILD['nitro_booster_id'])
+    if (nitro_booster in message.author.roles) and (randint(1, 100) < GUILD['rand_boost']):
         points += len(args)
 
     if check_member(message.author.id) is False:
@@ -190,13 +203,17 @@ async def on_message(message):
             elif command == 'say':
                 await message.channel.send(' '.join(args))
                 await message.delete()
-            elif command == 'e':
+            elif command == 'everyone':
                 await message.channel.send('@everyone')
                 await message.delete()
             elif command == 'rgb':
                 message_rgb = await message.channel.send(GUILD['roles_rgb'])
                 await message_rgb.delete()
                 await message.delete()
+            elif command == 'editMessage':
+                message_old = await message.channel.fetch_message(args.pop(0))
+                content = ' '.join(args)
+                await message_old.edit(content=content)
 
 
 @client.event
