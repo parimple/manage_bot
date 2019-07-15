@@ -39,7 +39,7 @@ async def minute():
         if date_now.minute % 10 == 0:
             for channel in guild.voice_channels:
                 for member in channel.members:
-                    if check_member(member.id) is False:
+                    if (not member.bot) and (check_member(member.id) is False):
                         if (date_now - member.joined_at).seconds > 60:
                             set_member(member.id, member.name, member.discriminator, None)
                             session.commit()
@@ -114,8 +114,8 @@ async def on_member_join(member):
         session.commit()
     join_logs = member.guild.get_channel(GUILD['join_logs_id'])
     if invite:
-        await join_logs.send('member: {}, display_name: {}, inviter: {}'
-                             .format(member.mention, member.display_name, invite.inviter))
+        await join_logs.send('member: {}, display_name: {}, inviter: {} <@{}>'
+                             .format(member.mention, member.display_name, invite.inviter, invite.inviter.id))
     else:
         await join_logs.send('member: {}, display_name: {}, inviter: {}'
                              .format(member.mention, member.display_name, None))
@@ -123,6 +123,7 @@ async def on_member_join(member):
 
 @client.event
 async def on_message(message):
+    message_save = message
     date_now = datetime.now()
 
     if not message.content:
@@ -145,7 +146,7 @@ async def on_message(message):
         points += 32
     else:
         points += len(args)
-    nitro_booster = message.guild.get_role(GUILD['nitro_booster_id'])
+    nitro_booster = message_save.guild.get_role(GUILD['nitro_booster_id'])
     if (nitro_booster in message.author.roles) and (randint(1, 100) < GUILD['rand_boost']):
         points += len(args)
 
