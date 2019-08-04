@@ -2,9 +2,9 @@ import asyncio
 from datetime import datetime
 
 import discord
-from queries import *
-import datasources.models
-import datasources.queries
+from datasources.queries import *
+import datasources.models as models
+import datasources.queries as queries
 from mappings import BOT, GUILD, COMMANDS
 from datasources import session, engine
 from random import randint
