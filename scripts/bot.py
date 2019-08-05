@@ -234,6 +234,7 @@ async def on_ready():
 
     if check_role_by_type('top') is False:
         for i in range(1, GUILD['top']+1):
+            print(i)
             role = await guild.create_role(name=i, hoist=True)
             set_role(role.id, i, 'top')
             session.commit()
