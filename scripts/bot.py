@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import discord
 from datasources.queries import *
@@ -56,14 +56,17 @@ async def minute():
                             session.commit()
 
         if date_db.strftime("%A") != date_now.strftime("%A"):
+            role_recruiter = guild.get_role(GUILD['recruiter'])
+            for member in role_recruiter.members:
+                await member.remove_roles(role_recruiter)
             reset_points_global(date_now.strftime("%A"))
+
+        if date_now.hour != date_db.hour:
             role_everyone = guild.get_role(GUILD['fake_everyone_id'])
             role_here = guild.get_role(GUILD['fake_here_id'])
             for member in role_everyone.members:
                 await member.remove_roles(role_everyone)
                 await member.remove_roles(role_here)
-
-        if date_now.hour != date_db.hour:
             members_top = get_top_members(GUILD['top'])
             roles_top = get_top_roles(GUILD['top'])
 
@@ -107,6 +110,11 @@ async def on_member_join(member):
     if check_member(member.id) is False:
         if invite:
             set_member(member.id, member.name, member.discriminator, invite.inviter.id)
+            inviter = member.guild.get_member(invite.inviter.id)
+            if (member.joined_at - member.created_at) > timedelta(days=2):
+                if inviter:
+                    if not inviter.bot:
+                        await inviter.add_roles(member.guild.get_role(GUILD['recruiter']), reason='recruiter')
         else:
             set_member(member.id, member.name, member.discriminator, None)
         session.commit()
@@ -137,7 +145,8 @@ async def on_message(message):
         await message.author.add_roles(message.guild.get_role(GUILD['fake_here_id']), reason='here ping')
 
     args = message.content.split(' ')
-
+    if len(message.content) < 2:
+        return
     for command in COMMANDS:
         if command in args[0].lower():
             return
@@ -148,6 +157,9 @@ async def on_message(message):
         points += len(args)
     nitro_booster = message_save.guild.get_role(GUILD['nitro_booster_id'])
     if (nitro_booster in message.author.roles) and (randint(1, 100) < GUILD['rand_boost']):
+        points += len(args)
+    patreon_2 = message_save.guild.get_role(GUILD['patreon_2_id'])
+    if (patreon_2 in message.author.roles) and (randint(1, 100) < GUILD['rand_boost']):
         points += len(args)
 
     if check_member(message.author.id) is False:
