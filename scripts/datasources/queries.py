@@ -112,6 +112,65 @@ def check_member(member_id):
     return query
 
 
+def get_member_member(host_id, guest_id):
+    query = session.query(MemberMember.view_channel, MemberMember.connect, MemberMember.speak)\
+        .filter(MemberMember.member_host == host_id, MemberMember.member_guest == guest_id).first()
+    return query
+
+
+def set_member_member(host_id, guest_id):
+    new_member_member = MemberMember(
+        member_host=host_id,
+        member_guest=guest_id
+    )
+    session.add(new_member_member)
+
+
+def update_member_member(host_id, guest_id, view_channel=None, connect=None, speak=None):
+    member_member = session.query(MemberMember)\
+        .filter(MemberMember.member_host == host_id).filter(MemberMember.member_guest == guest_id).one()
+    if view_channel is not None:
+        member_member.view_channel = view_channel
+    if connect is not None:
+        member_member.connect = connect
+    if speak is not None:
+        member_member.speak = speak
+
+
+def update_member(host_id, view_channel=None, connect=None, speak=None, limit=None):
+    member = session.query(Member)\
+        .filter(Member.id == host_id).first()
+    if view_channel is not None:
+        member.host_everyone_view_channel = view_channel
+    if connect is not None:
+        member.host_everyone_connect = connect
+    if speak is not None:
+        member.host_everyone_speak = speak
+    if limit is not None:
+        if isinstance(limit, int):
+            if limit < 0:
+                limit = 0
+            elif limit > 99:
+                limit = 99
+            member.host_channel_limit = limit
+
+
+def get_member_permissions(member_id):
+    query = session.query(Member.host_everyone_view_channel,
+                          Member.host_everyone_connect,
+                          Member.host_everyone_speak,
+                          Member.host_channel_limit).filter(Member.id == member_id).one()
+    return query
+
+
+def get_member_guests(member_id):
+    query = session.query(MemberMember.member_guest,
+                          MemberMember.view_channel,
+                          MemberMember.connect,
+                          MemberMember.speak).filter(MemberMember.member_host == member_id).all()
+    return query
+
+
 def set_member(member_id, member_name, member_discriminator, member_parent_id):
     new_member = Member(
         id=member_id,

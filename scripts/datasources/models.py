@@ -13,19 +13,26 @@ class MemberScore(Base):
     score = Column(INTEGER)
 
 
-class ChannelRole(Base):
-    __tablename__ = 'channel_role'
-    channel_id = Column(INTEGER, ForeignKey('channel.id'), primary_key=True)
-    role_id = Column(INTEGER, ForeignKey('role.id'), primary_key=True)
-    active = Column(BOOLEAN)
+class MemberMember(Base):
+    __tablename__ = 'member_member'
+    member_host = Column(INTEGER, ForeignKey('member.id'), primary_key=True)
+    member_guest = Column(INTEGER, ForeignKey('member.id'), primary_key=True)
+    view_channel = Column(BOOLEAN)
+    connect = Column(BOOLEAN)
+    speak = Column(BOOLEAN)
 
 
 class MemberRole(Base):
     __tablename__ = 'member_role'
     member_id = Column(INTEGER, ForeignKey('member.id'), primary_key=True)
     role_id = Column(INTEGER, ForeignKey('role.id'), primary_key=True)
+
+
+class ChannelRole(Base):
+    __tablename__ = 'channel_role'
+    channel_id = Column(INTEGER, ForeignKey('channel.id'), primary_key=True)
+    role_id = Column(INTEGER, ForeignKey('role.id'), primary_key=True)
     active = Column(BOOLEAN)
-    date = Column(DATETIME)
 
 
 class Guild(Base):
@@ -64,4 +71,8 @@ class Member(Base):
     discriminator = Column(TEXT)
     parent_id = Column(INTEGER, ForeignKey('member.id'))
     parent = relationship('Member', remote_side=[id])
+    host_everyone_view_channel = Column(BOOLEAN)
+    host_everyone_connect = Column(BOOLEAN)
+    host_everyone_speak = Column(BOOLEAN)
+    host_channel_limit = Column(INTEGER)
 
