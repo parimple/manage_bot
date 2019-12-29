@@ -16,6 +16,7 @@ client = discord.Client()
 invites = []
 channels = {}
 
+
 async def presence():
     while True:
         await client.change_presence(activity=discord.Game(name='R'))
@@ -162,7 +163,7 @@ async def on_member_join(member):
                         await inviter.add_roles(member.guild.get_role(GUILD['recruiter']), reason='recruiter')
                         if (member.joined_at - member.created_at) > timedelta(days=8):
                             if get_invited_count(inviter.id) > 3:
-                                await inviter.add_roles(member.guild.get_role(GUILD['join']), reason='join')
+                                await inviter.add_roles(member.guild.get_role(GUILD['join_id']), reason='join')
         else:
             set_member(member.id, member.name, member.discriminator, None)
         session.commit()
@@ -232,20 +233,20 @@ async def on_message(message):
         if command in ['help', 'h']:
             embed = discord.Embed()
             embed.add_field(name='connect permission',
-                            value='{}connect + <@{}>'.format(BOT['prefix'], message.author.id), inline=True)
+                            value='{}connect - <@{}>'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='view permission',
-                            value='{}view + <@{}>'.format(BOT['prefix'], message.author.id), inline=True)
+                            value='{}view - <@{}>'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='speak permission',
-                            value='{}speak + <@{}>'.format(BOT['prefix'], message.author.id), inline=True)
+                            value='{}speak - <@{}>'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='global connect permission',
-                            value='{}connect +'.format(BOT['prefix'], message.author.id), inline=True)
+                            value='{}connect -'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='global view permission',
-                            value='{}view +'.format(BOT['prefix'], message.author.id), inline=True)
+                            value='{}view -'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='global speak permission',
-                            value='{}speak +'.format(BOT['prefix'], message.author.id), inline=True)
+                            value='{}speak -'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='user limit',
                             value='{}limit 2'.format(BOT['prefix'], message.author.id), inline=True)
-            embed.set_footer(text="to forbid use - instead +")
+            embed.set_footer(text="to allow permission use +")
 
             await message.channel.send(embed=embed)
             return
@@ -423,6 +424,8 @@ async def on_ready():
     print(client.user.name)
     print('---------------')
     print('This bot is ready for action!')
+    client.loop.create_task(presence())
+    client.loop.create_task(minute())
 
 
 if __name__ == '__main__':
