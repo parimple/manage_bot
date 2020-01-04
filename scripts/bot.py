@@ -394,6 +394,11 @@ async def on_message(message):
                 await message_old.edit(content=content)
 
 
+@client.event
+async def on_member_remove(member):
+    leave_logs = member.guild.get_channel(GUILD['leave_logs_id'])
+    await leave_logs.send('member: {}, display_name: {}'.format(member.mention, member.display_name))
+
 
 @client.event
 async def on_ready():
