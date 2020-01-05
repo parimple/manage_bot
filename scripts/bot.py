@@ -5,7 +5,7 @@ import discord
 from datasources.queries import *
 import datasources.models as models
 import datasources.queries as queries
-from mappings import BOT, GUILD, COMMANDS
+from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS
 from datasources import session, engine
 from random import randint
 
@@ -196,6 +196,12 @@ async def on_message(message):
     args = message.content.split(' ')
     if len(message.content) < 2:
         return
+
+    if message.channel.id != GUILD['bots_channel_id'] and len(args[0]) > 1 and \
+            args[0][0] in MUSIC_PREFIX and args[0][1:] in MUSIC_COMMANDS:
+        await message.delete()
+        return
+
     for command in COMMANDS:
         if command in args[0].lower():
             return
@@ -238,12 +244,16 @@ async def on_message(message):
                             value='{}view - <@{}>'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='speak permission',
                             value='{}speak - <@{}>'.format(BOT['prefix'], message.author.id), inline=True)
+            embed.add_field(name='reset permissions',
+                            value='{}reset <@{}>'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='global connect permission',
                             value='{}connect -'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='global view permission',
                             value='{}view -'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='global speak permission',
                             value='{}speak -'.format(BOT['prefix'], message.author.id), inline=True)
+            embed.add_field(name='reset global permissions',
+                            value='{}reset'.format(BOT['prefix'], message.author.id), inline=True)
             embed.add_field(name='user limit',
                             value='{}limit 2'.format(BOT['prefix'], message.author.id), inline=True)
             embed.set_footer(text="to allow permission use +")
@@ -264,9 +274,13 @@ async def on_message(message):
             await message.channel.send(embed=embed)
             return
 
-        if command in ['speak', 's', 'connect', 'c', 'view', 'v']:
+        if command in ['speak', 's', 'connect', 'c', 'view', 'v', 'reset', 'r']:
             host = message.author
-            parameter = args.pop(0)
+            if command in ['reset', 'r']:
+                parameter = '+'
+            else:
+                parameter = args.pop(0)
+
             allowed = BOT['true'] + BOT['false']
             if parameter not in allowed:
                 return
@@ -284,11 +298,26 @@ async def on_message(message):
                 if not overwrites:
                     set_member_member(host.id, guest.id)
                     session.commit()
-                if command in ['speak', 's']:
+                if command in ['reset', 'r']:
+                    temp_channels = {k: v for k, v in channels.items() if v}
+                    for channel in temp_channels:
+                        if host == temp_channels[channel]:
+                            await channel.set_permissions(guest, overwrite=None)
+                            if guest in channel.members:
+                                afk_channel = message.guild.get_channel(GUILD['afk_channel_id'])
+                                await guest.move_to(afk_channel)
+                                await guest.move_to(channel)
+                    update_member_member(host.id, guest.id, speak=None, connect=None, view_channel=None)
+                    session.commit()
+                elif command in ['speak', 's']:
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel in temp_channels:
                         if host == temp_channels[channel]:
                             await channel.set_permissions(guest, speak=parameter)
+                            if guest in channel.members:
+                                afk_channel = message.guild.get_channel(GUILD['afk_channel_id'])
+                                await guest.move_to(afk_channel)
+                                await guest.move_to(channel)
                     update_member_member(host.id, guest.id, speak=parameter)
                     session.commit()
                 elif command in ['connect', 'c']:
@@ -312,7 +341,13 @@ async def on_message(message):
                     update_member_member(host.id, guest.id, view_channel=parameter)
                     session.commit()
             else:
-                if command in ['speak', 's']:
+                if command in ['reset', 'r']:
+                    create_channel = message.guild.get_channel(GUILD['create_channel'])
+                    update_member(host.id, speak=True, view_channel=True, connect=True, limit=99)
+                    update_member_members(host.id)
+                    session.commit()
+                    await host.move_to(create_channel)
+                elif command in ['speak', 's']:
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel in temp_channels:
                         if host == temp_channels[channel]:

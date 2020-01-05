@@ -137,6 +137,14 @@ def update_member_member(host_id, guest_id, view_channel=None, connect=None, spe
         member_member.speak = speak
 
 
+def update_member_members(host_id, view_channel=None, connect=None, speak=None):
+    member_members = session.query(MemberMember).filter(MemberMember.member_host == host_id)
+    for member in member_members:
+        member.view_channel = view_channel
+        member.connect = connect
+        member.speak = speak
+
+
 def update_member(host_id, view_channel=None, connect=None, speak=None, limit=None):
     member = session.query(Member)\
         .filter(Member.id == host_id).first()
