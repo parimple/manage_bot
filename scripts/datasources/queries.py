@@ -202,7 +202,8 @@ def set_member_scores(member_id, types):
 def add_member_score(member_id, day, points):
     member_score = session.query(MemberScore).join(Score).\
         filter((MemberScore.member_id == member_id) & (Score.name == day)).first()
-    member_score.score += points
+    if member_score:
+        member_score.score += points
 
 
 def get_member_parent_id(member_id):
