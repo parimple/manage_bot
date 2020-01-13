@@ -179,6 +179,14 @@ def get_member_guests(member_id):
     return query
 
 
+def get_member_hosts(member_id):
+    query = session.query(MemberMember.member_host,
+                          MemberMember.view_channel,
+                          MemberMember.connect,
+                          MemberMember.speak).filter(MemberMember.member_guest == member_id).all()
+    return query
+
+
 def set_member(member_id, member_name, member_discriminator, member_parent_id):
     new_member = Member(
         id=member_id,

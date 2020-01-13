@@ -142,7 +142,7 @@ async def on_member_join(member):
     invites_old = invites.copy()
     invites.clear()
     invites.extend(await member.guild.invites())
-
+    guild = member.guild
     try:
         invite = discord.utils.find(lambda inv: inv.uses > discord.utils.get(invites_old, id=inv.id).uses, invites)
     except AttributeError:
@@ -177,6 +177,19 @@ async def on_member_join(member):
         await join_logs.send('member: {}, display_name: {}, inviter: {}'
                              .format(member.mention, member.display_name, None))
 
+    member_hosts = get_member_hosts(member.id)
+    if member_hosts:
+        for host_id in member_hosts:
+            host = guild.get_member(host_id)
+            if host:
+                temp_channels = {k: v for k, v in channels.items() if v}
+                for channel in temp_channels:
+                    if host == temp_channels[channel]:
+                        await channel.set_permissions(member,
+                                                      speak=host_id.speak,
+                                                      connect=host_id.connect,
+                                                      view_channel=host_id.view_channel)
+
 
 @client.event
 async def on_message(message):
@@ -198,7 +211,7 @@ async def on_message(message):
         return
 
     if message.channel.id != GUILD['bots_channel_id'] and len(args[0]) > 1 and \
-            args[0][0] in MUSIC_PREFIX and args[0][1:] in MUSIC_COMMANDS:
+            args[0][0] in MUSIC_PREFIX and args[0][1:].lower() in MUSIC_COMMANDS:
         await message.delete()
         return
 
@@ -275,6 +288,8 @@ async def on_message(message):
             return
 
         if command in ['speak', 's', 'connect', 'c', 'view', 'v', 'reset', 'r']:
+            if len(args) < 1:
+                return
             host = message.author
             if command in ['reset', 'r']:
                 parameter = '+'
@@ -283,7 +298,7 @@ async def on_message(message):
 
             allowed = BOT['true'] + BOT['false']
             if parameter not in allowed:
-                return
+                parameter = True
             else:
                 if parameter in BOT['true']:
                     parameter = True
@@ -370,6 +385,8 @@ async def on_message(message):
                     session.commit()
 
         if command in ['limit', 'l']:
+            if len(args) < 1:
+                return
             host = message.author
             limit_str = args.pop(0)
             if limit_str.isdigit():
