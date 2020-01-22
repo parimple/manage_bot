@@ -3,11 +3,13 @@ from datetime import datetime, timedelta
 
 import discord
 from datasources.queries import *
+import inspect
 import datasources.models as models
 import datasources.queries as queries
 from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS
 from datasources import session, engine
 from random import randint
+from functions import *
 
 if not engine.dialect.has_table(engine, 'member'):
     datasources.models.Base.metadata.create_all(engine)
@@ -38,7 +40,14 @@ async def minute():
         if len(diff) > 0:
             invites.extend(diff)
         if date_now.minute % 10 == 0:
+            private_category = guild.get_channel(GUILD['private_category'])
             for channel in guild.voice_channels:
+                if (len(channel.members) < 1) and (channel in private_category.channels):
+                    if channel.id != GUILD['create_channel']:
+                        del channels[channel]
+                        await channel.delete()
+                        continue
+
                 for member in channel.members:
                     if (not member.bot) and (check_member(member.id) is False):
                         if (date_now - member.joined_at).seconds > 60:
@@ -95,6 +104,7 @@ async def minute():
 @client.event
 async def on_voice_state_update(member, before, after):
     guild = member.guild
+    private_category = guild.get_channel(GUILD['private_category'])
     if after.channel:
         if before.channel != after.channel:
             if after.channel.id == GUILD['create_channel']:
@@ -131,9 +141,10 @@ async def on_voice_state_update(member, before, after):
                 channels[new_channel] = member
     if before.channel:
         if before.channel != after.channel:
-            if before.channel in channels.keys():
-                if len(before.channel.members) == 0:
-                    del channels[before.channel]
+            if before.channel in private_category.channels:
+                if (len(before.channel.members) == 0) and before.channel.id != GUILD['create_channel']:
+                    if before.channel in channels:
+                        del channels[before.channel]
                     await before.channel.delete()
 
 
@@ -248,6 +259,7 @@ async def on_message(message):
 
     if not message.attachments and message.content[0] == BOT['prefix']:
         command = args.pop(0)[1:]
+        print(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), message.author, command, args)
 
         if command in ['help', 'h']:
             embed = discord.Embed()
@@ -406,6 +418,18 @@ async def on_message(message):
             session.commit()
 
         if message.author.id == BOT['owner']:
+            if command == 'eval':
+                # try:
+                code = cleanup_code(' '.join(args))
+                evaled = eval(code)
+                # print(type(evaled))
+                if inspect.isawaitable(evaled):
+                    await message.channel.send(await evaled)
+                else:
+                    await message.channel.send("```{}```".format(evaled))
+                # except:
+                #     print('eval except')
+                # if type(evaled) !=
             if command == 'dateTime':
                 print(date_now.strftime("%A"))
             elif command == 'addNsfw':
@@ -472,10 +496,10 @@ async def on_ready():
         set_guild_by_id(GUILD['id'], date_now)
     session.commit()
 
-    private_category = guild.get_channel(GUILD['private_category'])
-    for channel in private_category.channels:
-        if channel.id != GUILD['create_channel']:
-            await channel.delete()
+    # private_category = guild.get_channel(GUILD['private_category'])
+    # for channel in private_category.channels:
+    #     if channel.id != GUILD['create_channel']:
+    #         await channel.delete()
 
     print(client.user.id)
     print(client.user.name)
