@@ -222,3 +222,8 @@ def get_member_parent_id(member_id):
 def get_invited_count(member_id):
     query = session.query(Member.id).filter(Member.parent_id == member_id).count()
     return query
+
+
+def get_invited_list(member_id):
+    query = session.query(Member.id).filter(Member.parent_id == member_id).all()
+    return [member.id for member in query]

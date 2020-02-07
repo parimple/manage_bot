@@ -10,6 +10,7 @@ from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS
 from datasources import session, engine
 from random import randint
 from functions import *
+from colour import Color
 
 if not engine.dialect.has_table(engine, 'member'):
     datasources.models.Base.metadata.create_all(engine)
@@ -69,6 +70,15 @@ async def minute():
             role_recruiter = guild.get_role(GUILD['recruiter'])
             for member in role_recruiter.members:
                 await member.remove_roles(role_recruiter)
+
+            role_temp_bonus = guild.get_role(GUILD['temp_bonus_id'])
+            for member in role_temp_bonus.members:
+                await member.remove_roles(role_temp_bonus)
+
+            for role in guild.roles:
+                if role.name == GUILD['colored_name'] or role.name == GUILD['multi_colored_name']:
+                    await role.delete()
+
             reset_points_global(date_now.strftime("%A"))
 
         if date_now.hour != date_db.hour:
@@ -150,10 +160,26 @@ async def on_voice_state_update(member, before, after):
 
 @client.event
 async def on_member_join(member):
+    member_hosts = get_member_hosts(member.id)
+    guild = member.guild
+    print(member_hosts)
+    if member_hosts:
+        for host_id in member_hosts:
+            print(host_id.speak, host_id.connect, host_id.view_channel)
+            host = guild.get_member(host_id.member_host)
+            if host:
+                print(host)
+                temp_channels = {k: v for k, v in channels.items() if v}
+                for channel in temp_channels:
+                    if host == temp_channels[channel]:
+                        await channel.set_permissions(member,
+                                                      speak=host_id.speak,
+                                                      connect=host_id.connect,
+                                                      read_messages=host_id.view_channel)
+
     invites_old = invites.copy()
     invites.clear()
     invites.extend(await member.guild.invites())
-    guild = member.guild
     try:
         invite = discord.utils.find(lambda inv: inv.uses > discord.utils.get(invites_old, id=inv.id).uses, invites)
     except AttributeError:
@@ -168,13 +194,41 @@ async def on_member_join(member):
         if invite:
             set_member(member.id, member.name, member.discriminator, invite.inviter.id)
             inviter = member.guild.get_member(invite.inviter.id)
-            if (member.joined_at - member.created_at) > timedelta(days=4):
+            if (member.joined_at - member.created_at) > timedelta(days=3):
                 if inviter:
                     if not inviter.bot:
                         await inviter.add_roles(member.guild.get_role(GUILD['recruiter']), reason='recruiter')
-                        if (member.joined_at - member.created_at) > timedelta(days=8):
-                            if get_invited_count(inviter.id) > 3:
+                        if (member.joined_at - member.created_at) > timedelta(days=7):
+                            invited_list = get_invited_list(inviter.id)
+                            real_count = 0
+                            for invited_id in invited_list:
+                                invited = guild.get_member(invited_id)
+                                if invited:
+                                    if invited.avatar and (invited.joined_at - invited.created_at) > timedelta(days=3):
+                                        real_count += 1
+                            if real_count > 1:
+                                await inviter.add_roles(member.guild.get_role(GUILD['dj_id']), reason='dj')
+                            if real_count > 3:
                                 await inviter.add_roles(member.guild.get_role(GUILD['join_id']), reason='join')
+                            if real_count > 7:
+                                await inviter.add_roles(member.guild.get_role(GUILD['temp_bonus_id']), reason='bonus')
+                            if real_count > 15:
+                                await inviter.add_roles(member.guild.get_role(GUILD['bonus_id']), reason='bonus')
+                            if real_count > 31:
+                                pass
+                            if real_count > 63:
+                                if any(role.name == GUILD['colored_name'] for role in inviter.roles):
+                                    pass
+                                else:
+                                    colored_role = await guild.create_role(name=GUILD['colored_name'])
+                                    colored_role_position = guild.get_role(GUILD['colored_role_position'])
+                                    print('role position', colored_role_position.position)
+                                    await inviter.add_roles(colored_role, reason='colored')
+                                    await asyncio.sleep(10)
+                                    await colored_role.edit(position=colored_role_position.position+1,reason='position')
+                            if real_count > 128:
+                                pass
+
         else:
             set_member(member.id, member.name, member.discriminator, None)
         session.commit()
@@ -187,19 +241,6 @@ async def on_member_join(member):
     else:
         await join_logs.send('member: {}, display_name: {}, inviter: {}'
                              .format(member.mention, member.display_name, None))
-
-    member_hosts = get_member_hosts(member.id)
-    if member_hosts:
-        for host_id in member_hosts:
-            host = guild.get_member(host_id)
-            if host:
-                temp_channels = {k: v for k, v in channels.items() if v}
-                for channel in temp_channels:
-                    if host == temp_channels[channel]:
-                        await channel.set_permissions(member,
-                                                      speak=host_id.speak,
-                                                      connect=host_id.connect,
-                                                      view_channel=host_id.view_channel)
 
 
 @client.event
@@ -240,6 +281,12 @@ async def on_message(message):
     patreon_2 = message_save.guild.get_role(GUILD['patreon_2_id'])
     if (patreon_2 in message.author.roles) and (randint(1, 100) < GUILD['rand_boost']):
         points += len(args)
+    temp_bonus = message_save.guild.get_role(GUILD['temp_bonus_id'])
+    if (temp_bonus in message.author.roles) and (randint(1, 100) < GUILD['rand_boost']):
+        points += len(args)
+    bonus = message_save.guild.get_role(GUILD['bonus_id'])
+    if (bonus in message.author.roles) and (randint(1, 100) < GUILD['rand_boost']):
+        points += len(args)
 
     if check_member(message.author.id) is False:
         if (date_now - message.author.joined_at).seconds > 60:
@@ -260,6 +307,34 @@ async def on_message(message):
     if not message.attachments and message.content[0] == BOT['prefix']:
         command = args.pop(0)[1:]
         print(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), message.author, command, args)
+
+        if command in ['color', 'colour']:
+            if args:
+                try:
+                    color_string = ''.join(args)
+                    if '#' in color_string:
+                        color_string = color_string.replace('#', '')
+                    new_color = Color(color_string)
+                    print(new_color.hex_l)
+                    hex_string = new_color.hex_l.replace('#', '')
+                    discord_color = discord.Color(int(hex_string, 16))
+                    for role in message.author.roles:
+                        if role.name == GUILD['colored_name']:
+                            await role.edit(colour=discord_color)
+                            return
+                except ValueError:
+                    pass
+                try:
+                    color_string = ''.join(args)
+                    if '#' in color_string:
+                        color_string = color_string.replace('#', '')
+                    discord_color = discord.Color(int(color_string, 16))
+                    for role in message.author.roles:
+                        if role.name == GUILD['colored_name']:
+                            await role.edit(colour=discord_color)
+                            return
+                except ValueError:
+                    pass
 
         if command in ['help', 'h']:
             embed = discord.Embed()
@@ -293,14 +368,20 @@ async def on_message(message):
             else:
                 inviter_name = inviter.display_name
             invited_count = get_invited_count(message.author.id)
+            invited_list = get_invited_list(message.author.id)
+            real_count = 0
+            for invited_id in invited_list:
+                invited = message.guild.get_member(invited_id)
+                if invited:
+                    if invited.avatar and (invited.joined_at - invited.created_at) > timedelta(days=3):
+                        real_count += 1
             embed = discord.Embed()
-            embed.add_field(name='invited people', value=invited_count, inline=True)
+            embed.add_field(name='invited people', value="{}({})".format(real_count, invited_count), inline=True)
             embed.set_footer(text="invited by {}".format(inviter_name))
             await message.channel.send(embed=embed)
             return
-
         if command in ['speak', 's', 'connect', 'c', 'view', 'v', 'reset', 'r']:
-            if len(args) < 1:
+            if (len(args) < 1) and command not in ['reset', 'r']:
                 return
             host = message.author
             if command in ['reset', 'r']:
@@ -418,6 +499,19 @@ async def on_message(message):
             session.commit()
 
         if message.author.id == BOT['owner']:
+            if command == 'ban_all':
+                if message.mentions:
+                    inviter = message.mentions[0]
+                else:
+                    return
+                ban_list = get_invited_list(inviter.id)
+                for member_id in ban_list:
+                    member = message.guild.get_member(member_id)
+                    if member:
+                        print(member)
+                        if (datetime.now() - member.joined_at) < timedelta(hours=2):
+                            await message.channel.send('{} banned'.format(member))
+                            await member.ban()
             if command == 'eval':
                 # try:
                 code = cleanup_code(' '.join(args))
@@ -457,6 +551,33 @@ async def on_message(message):
             elif command == 'say':
                 await message.channel.send(' '.join(args))
                 await message.delete()
+            elif command == 'sayhc':
+                message_old = await message.channel.fetch_message(592443154058182686)
+                content = """
+**Rangi numeryczne [1, 2, 3 … 128] na liście użytkowników. Co to jest?**
+Jest to autorski system rankingu aktywności, stworzony na potrzeby tego serwera.
+
+**Jak zdobyć własną rangę na liście użytkowników? Sposobów jest kilka:**
+1. Aktywność na czacie tekstowym.
+2. Przebywanie na kanałach głosowych.
+3. Aktywność osób, które zostały przez Ciebie zaproszone (10% wygenerowanego ruchu pojawia się też na Twoim koncie)
+4. Nitro Serwer Boost lub Patronite (https://www.patreon.com/zaGadka), zwiększają wszystkie pozostałe bonusy o 25%
+
+**Co dostaniesz za zaproszenie nowej osoby na serwer?** (ilość zaproszonych osób `?profile`)
+1 osoba ♳ - czarny kolor nicku do końca dnia
+2 osoby ♴ - DJ, czyli kontrola nad botami muzycznymi
+4 osoby ♵ - możliwość tworzenia własnego kanału głosowego z możliwością mutowania (więcej komend: `?help`)
+8+ osób ♶ - +25%  punktów do końca dnia
+16 osób ♷ - +25% punktów na stałe
+**32 osoby ✪ - dołączenie do moderacji zagadki na okres próbny**
+64+ osoby ♸ - indywidualna ranga, możesz zmieniać jej kolor za pomocą komendy np `?color light blue` do końca dnia
+128+ osób ♹ - indywidualna ranga jak wyżej, z tą różnicą że cyklicznie smienia ona wybrane przez Ciebie kolory
++ oznacza, że w następnym dniu, rola się odświeży po dołączeniu jednej osoby
+
+**Jak zmienić kolor nicku?**
+1. Wybrać <a:zaGadkaRed:592406448302981149> <a:zaGadkaGreen:592406448315564062> <a:zaGadjaBlue:592406448386998289> za pomocą reakcji widocznych na samym dole
+2. Aby otrzymać wyjątkowy, czarny kolor należy boostować serwer, być patronem($2 - czarny, $4 - dowolny), lub zaprosić nową osobę"""
+                await message_old.edit(content=content)
             elif command == 'everyone':
                 await message.channel.send('@everyone')
                 await message.delete()

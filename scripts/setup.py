@@ -9,6 +9,6 @@ setup(
     url='',
     install_requires=[
         'SQLAlchemy',
-        'discord'
+        'discord', 'colour'
     ],
 )
