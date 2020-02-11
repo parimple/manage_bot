@@ -156,8 +156,8 @@ def update_member(host_id, view_channel=None, connect=None, speak=None, limit=No
         member.host_everyone_speak = speak
     if limit is not None:
         if isinstance(limit, int):
-            if limit < 0:
-                limit = 0
+            if limit < 1:
+                limit = 1
             elif limit > 99:
                 limit = 99
             member.host_channel_limit = limit
@@ -187,12 +187,13 @@ def get_member_hosts(member_id):
     return query
 
 
-def set_member(member_id, member_name, member_discriminator, member_parent_id):
+def set_member(member_id, member_name, member_discriminator, member_parent_id, member_joined_at):
     new_member = Member(
         id=member_id,
         username=member_name,
         discriminator=member_discriminator,
-        parent_id=member_parent_id
+        parent_id=member_parent_id,
+        joined_at=member_joined_at
     )
     session.add(new_member)
 
@@ -226,4 +227,10 @@ def get_invited_count(member_id):
 
 def get_invited_list(member_id):
     query = session.query(Member.id).filter(Member.parent_id == member_id).all()
+    return [member.id for member in query]
+
+
+def get_invited_list_minutes(member_id, x_m_ago):
+    query = session.query(Member.id).filter(Member.parent_id == member_id)\
+        .filter(Member.joined_at is not None).filter(Member.joined_at > x_m_ago).all()
     return [member.id for member in query]

@@ -52,7 +52,7 @@ async def minute():
                 for member in channel.members:
                     if (not member.bot) and (check_member(member.id) is False):
                         if (date_now - member.joined_at).seconds > 60:
-                            set_member(member.id, member.name, member.discriminator, None)
+                            set_member(member.id, member.name, member.discriminator, None, datetime.now())
                             session.commit()
                             set_member_scores(member.id, ['week'])
                             session.commit()
@@ -138,7 +138,7 @@ async def on_voice_state_update(member, before, after):
                     read_messages=True,
                     connect=True,
                     speak=True,
-                    move_members=True)
+                    move_members=False)
 
                 new_channel = await guild.create_voice_channel(
                     member.display_name,
@@ -192,7 +192,7 @@ async def on_member_join(member):
 
     if check_member(member.id) is False:
         if invite:
-            set_member(member.id, member.name, member.discriminator, invite.inviter.id)
+            set_member(member.id, member.name, member.discriminator, invite.inviter.id, datetime.now())
             inviter = member.guild.get_member(invite.inviter.id)
             if (member.joined_at - member.created_at) > timedelta(days=3):
                 if inviter:
@@ -230,7 +230,7 @@ async def on_member_join(member):
                                 pass
 
         else:
-            set_member(member.id, member.name, member.discriminator, None)
+            set_member(member.id, member.name, member.discriminator, None, datetime.now())
         session.commit()
         set_member_scores(member.id, ['week'])
         session.commit()
@@ -290,7 +290,7 @@ async def on_message(message):
 
     if check_member(message.author.id) is False:
         if (date_now - message.author.joined_at).seconds > 60:
-            set_member(message.author.id, message.author.name, message.author.discriminator, None)
+            set_member(message.author.id, message.author.name, message.author.discriminator, None, datetime.now())
             session.commit()
             set_member_scores(message.author.id, ['week'])
             session.commit()
@@ -454,7 +454,10 @@ async def on_message(message):
                     update_member(host.id, speak=True, view_channel=True, connect=True, limit=99)
                     update_member_members(host.id)
                     session.commit()
-                    await host.move_to(create_channel)
+                    try:
+                        await host.move_to(create_channel)
+                    except discord.errors.HTTPException:
+                        return
                 elif command in ['speak', 's']:
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel in temp_channels:
@@ -499,19 +502,31 @@ async def on_message(message):
             session.commit()
 
         if message.author.id == BOT['owner']:
+            if command == 'ban':
+                if message.mentions:
+                    to_ban = message.mentions[0]
+                    print(to_ban)
+                else:
+                    to_ban_id = args.pop(0).strip('<@!>')
+                    to_ban = await client.fetch_user(to_ban_id)
+                    print(to_ban)
             if command == 'ban_all':
                 if message.mentions:
                     inviter = message.mentions[0]
                 else:
-                    return
-                ban_list = get_invited_list(inviter.id)
+                    inviter_id = args.pop(0).strip('<@!>')
+                    inviter = await client.fetch_user(inviter_id)
+                ban_list = get_invited_list_minutes(inviter.id,
+                                                    datetime.now() - timedelta(minutes=int(args.pop())))
                 for member_id in ban_list:
-                    member = message.guild.get_member(member_id)
-                    if member:
-                        print(member)
-                        if (datetime.now() - member.joined_at) < timedelta(hours=2):
-                            await message.channel.send('{} banned'.format(member))
-                            await member.ban()
+                    # member = message.guild.get_member(member_id)
+                    member = discord.Object(member_id)
+                    print(member)
+                    try:
+                        await message.channel.send('<@{}> banned'.format(member_id))
+                        await message.guild.ban(member)
+                    except discord.errors.NotFound:
+                        continue
             if command == 'eval':
                 # try:
                 code = cleanup_code(' '.join(args))

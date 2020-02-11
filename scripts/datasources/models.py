@@ -75,4 +75,5 @@ class Member(Base):
     host_everyone_connect = Column(BOOLEAN)
     host_everyone_speak = Column(BOOLEAN)
     host_channel_limit = Column(INTEGER)
+    joined_at = Column(DATETIME)
 
