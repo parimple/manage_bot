@@ -8,26 +8,36 @@ import datasources.models as models
 import datasources.queries as queries
 from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS
 from datasources import session, engine
-from random import randint
+from random import randint, choice
 from functions import *
 from colour import Color
+
 
 if not engine.dialect.has_table(engine, 'member'):
     datasources.models.Base.metadata.create_all(engine)
 
 client = discord.Client()
 invites = []
+colors = {}
 channels = {}
 
 
+# async def presence():
+#     while True:
+#         await client.change_presence(activity=discord.Game(name='R'))
+#         await asyncio.sleep(8)
+#         await client.change_presence(activity=discord.Game(name='G'))
+#         await asyncio.sleep(8)
+#         await client.change_presence(activity=discord.Game(name='B'))
+#         await asyncio.sleep(8)
+
 async def presence():
     while True:
-        await client.change_presence(activity=discord.Game(name='R'))
-        await asyncio.sleep(8)
-        await client.change_presence(activity=discord.Game(name='G'))
-        await asyncio.sleep(8)
-        await client.change_presence(activity=discord.Game(name='B'))
-        await asyncio.sleep(8)
+        for role in colors:
+            if colors[role]:
+                await role.edit(colour=choice(colors[role]))
+        await client.change_presence(activity=discord.Game(name=choice(['.', '-'])))
+        await asyncio.sleep(6)
 
 
 async def minute():
@@ -67,6 +77,7 @@ async def minute():
                             session.commit()
 
         if date_db.strftime("%A") != date_now.strftime("%A"):
+            colors.clear()
             role_recruiter = guild.get_role(GUILD['recruiter'])
             for member in role_recruiter.members:
                 await member.remove_roles(role_recruiter)
@@ -216,7 +227,7 @@ async def on_member_join(member):
                                 await inviter.add_roles(member.guild.get_role(GUILD['bonus_id']), reason='bonus')
                             if real_count > 31:
                                 pass
-                            if real_count > 63:
+                            if (real_count > 63) and (real_count < 128):
                                 if any(role.name == GUILD['colored_name'] for role in inviter.roles):
                                     pass
                                 else:
@@ -227,7 +238,16 @@ async def on_member_join(member):
                                     await asyncio.sleep(10)
                                     await colored_role.edit(position=colored_role_position.position+1,reason='position')
                             if real_count > 128:
-                                pass
+                                if any(role.name == GUILD['multi_colored_name'] for role in inviter.roles):
+                                    pass
+                                else:
+                                    multi_colored_role = await guild.create_role(name=GUILD['multi_colored_name'])
+                                    multi_colored_role_position = guild.get_role(GUILD['colored_role_position'])
+                                    await inviter.add_roles(multi_colored_role, reason='multi_colored')
+                                    await asyncio.sleep(10)
+                                    await multi_colored_role.edit(position=multi_colored_role_position.position+1,
+                                                                  reason='position')
+
 
         else:
             set_member(member.id, member.name, member.discriminator, None, datetime.now())
@@ -264,8 +284,11 @@ async def on_message(message):
 
     if message.channel.id != GUILD['bots_channel_id'] and len(args[0]) > 1 and \
             args[0][0] in MUSIC_PREFIX and args[0][1:].lower() in MUSIC_COMMANDS:
-        await message.delete()
-        return
+        try:
+            await message.delete()
+            return
+        except discord.errors.NotFound:
+            return
 
     for command in COMMANDS:
         if command in args[0].lower():
@@ -307,7 +330,10 @@ async def on_message(message):
     if not message.attachments and message.content[0] == BOT['prefix']:
         command = args.pop(0)[1:]
         print(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), message.author, command, args)
-
+        if command in ['reset_color', 'rc']:
+            for role in message.author.roles:
+                if role.name == GUILD['multi_colored_name']:
+                    colors[role] = []
         if command in ['color', 'colour']:
             if args:
                 try:
@@ -319,7 +345,9 @@ async def on_message(message):
                     hex_string = new_color.hex_l.replace('#', '')
                     discord_color = discord.Color(int(hex_string, 16))
                     for role in message.author.roles:
-                        if role.name == GUILD['colored_name']:
+                        if role.name == GUILD['multi_colored_name']:
+                            colors.setdefault(role, []).append(discord_color)
+                        elif role.name == GUILD['colored_name']:
                             await role.edit(colour=discord_color)
                             return
                 except ValueError:
@@ -330,7 +358,9 @@ async def on_message(message):
                         color_string = color_string.replace('#', '')
                     discord_color = discord.Color(int(color_string, 16))
                     for role in message.author.roles:
-                        if role.name == GUILD['colored_name']:
+                        if role.name == GUILD['multi_colored_name']:
+                            colors.setdefault(role, []).append(discord_color)
+                        elif role.name == GUILD['colored_name']:
                             await role.edit(colour=discord_color)
                             return
                 except ValueError:
@@ -381,6 +411,10 @@ async def on_message(message):
             await message.channel.send(embed=embed)
             return
         if command in ['speak', 's', 'connect', 'c', 'view', 'v', 'reset', 'r']:
+            if (message.author not in message.author.guild.get_role(GUILD['join_id']).members) and \
+                    (message.author not in message.author.guild.get_role(GUILD['nitro_booster_id']).members):
+                print('nie ma')
+                return
             if (len(args) < 1) and command not in ['reset', 'r']:
                 return
             host = message.author
@@ -586,7 +620,8 @@ Jest to autorski system rankingu aktywności, stworzony na potrzeby tego serwera
 16 osób ♷ - +25% punktów na stałe
 **32 osoby ✪ - dołączenie do moderacji zagadki na okres próbny**
 64+ osoby ♸ - indywidualna ranga, możesz zmieniać jej kolor za pomocą komendy np `?color light blue` do końca dnia
-128+ osób ♹ - indywidualna ranga jak wyżej, z tą różnicą że cyklicznie smienia ona wybrane przez Ciebie kolory
+128+ osób ♹ - indywidualna ranga jak wyżej, z tą różnicą że cyklicznie zmienia ona wybrane przez Ciebie kolory
+x * 128 osób (x > 1) - nitro lub równowartość psc
 + oznacza, że w następnym dniu, rola się odświeży po dołączeniu jednej osoby
 
 **Jak zmienić kolor nicku?**
