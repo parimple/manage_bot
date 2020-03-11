@@ -621,7 +621,7 @@ Jest to autorski system rankingu aktywności, stworzony na potrzeby tego serwera
 **32 osoby ✪ - dołączenie do moderacji zagadki na okres próbny**
 64+ osoby ♸ - indywidualna ranga, możesz zmieniać jej kolor za pomocą komendy np `?color light blue` do końca dnia
 128+ osób ♹ - indywidualna ranga jak wyżej, z tą różnicą że cyklicznie zmienia ona wybrane przez Ciebie kolory
-x * 128 osób (x > 1) - nitro lub równowartość psc
+x * 128 osób, x ∈ N, x > 1 - nitro lub równowartość psc
 + oznacza, że w następnym dniu, rola się odświeży po dołączeniu jednej osoby
 
 **Jak zmienić kolor nicku?**
@@ -679,6 +679,11 @@ async def on_ready():
     client.loop.create_task(presence())
     client.loop.create_task(minute())
 
+
+@client.event
+async def on_invite_create(invite):
+    print('invite created')
+    invites.append(invite)
 
 if __name__ == '__main__':
     try:
