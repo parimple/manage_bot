@@ -205,17 +205,18 @@ async def on_member_join(member):
         if invite:
             set_member(member.id, member.name, member.discriminator, invite.inviter.id, datetime.now())
             inviter = member.guild.get_member(invite.inviter.id)
-            if (member.joined_at - member.created_at) > timedelta(days=3):
+            if (member.joined_at - member.created_at) > timedelta(days=GUILD['join_days']):
                 if inviter:
                     if not inviter.bot:
                         await inviter.add_roles(member.guild.get_role(GUILD['recruiter']), reason='recruiter')
-                        if (member.joined_at - member.created_at) > timedelta(days=7):
+                        if (member.joined_at - member.created_at) > timedelta(days=GUILD['join_days']):
                             invited_list = get_invited_list(inviter.id)
                             real_count = 0
                             for invited_id in invited_list:
                                 invited = guild.get_member(invited_id)
                                 if invited:
-                                    if invited.avatar and (invited.joined_at - invited.created_at) > timedelta(days=3):
+                                    if invited.avatar and (invited.joined_at -
+                                                           invited.created_at) > timedelta(days=GUILD['join_days']):
                                         real_count += 1
                             if real_count > 1:
                                 await inviter.add_roles(member.guild.get_role(GUILD['dj_id']), reason='dj')
@@ -256,8 +257,9 @@ async def on_member_join(member):
         session.commit()
     join_logs = member.guild.get_channel(GUILD['join_logs_id'])
     if invite:
-        await join_logs.send('member: {}, display_name: {}, inviter: {} <@{}>'
-                             .format(member.mention, member.display_name, invite.inviter, invite.inviter.id))
+        await join_logs.send('member: {}, display_name: {}, inviter: {} <@{}>, invite_code: {}, uses: {}'
+                             .format(member.mention, member.display_name, invite.inviter, invite.inviter.id,
+                                     invite.code, invite.uses))
     else:
         await join_logs.send('member: {}, display_name: {}, inviter: {}'
                              .format(member.mention, member.display_name, None))
@@ -391,21 +393,33 @@ async def on_message(message):
             await message.channel.send(embed=embed)
             return
 
-        if command == 'profile':
+        if command in ['p', 'profile']:
+            if message.mentions:
+                author = message.mentions[0]
+                parent_id = get_member_parent_id(author.id)
+            else:
+                author = message.author
             inviter = message.guild.get_member(parent_id)
             if inviter is None:
                 inviter_name = 'None'
             else:
                 inviter_name = inviter.display_name
-            invited_count = get_invited_count(message.author.id)
-            invited_list = get_invited_list(message.author.id)
+            invited_count = get_invited_count(author.id)
+            invited_list = get_invited_list(author.id)
             real_count = 0
             for invited_id in invited_list:
                 invited = message.guild.get_member(invited_id)
                 if invited:
-                    if invited.avatar and (invited.joined_at - invited.created_at) > timedelta(days=3):
+                    if invited.avatar and (invited.joined_at - invited.created_at) > timedelta(days=GUILD['join_days']):
                         real_count += 1
+            roles_l = [role.name for role in author.roles]
+            roles_l.pop(0)
+            roles = ' '.join(roles_l)
             embed = discord.Embed()
+            embed.set_author(name=author.name, icon_url=author.avatar_url)
+            embed.add_field(name='created at', value=author.created_at.strftime("%d/%m/%Y\n%H:%M:%S"))
+            embed.add_field(name='joined at', value=author.joined_at.strftime("%d/%m/%Y\n%H:%M:%S"))
+            embed.add_field(name='roles', value=roles)
             embed.add_field(name='invited people', value="{}({})".format(real_count, invited_count), inline=True)
             embed.set_footer(text="invited by {}".format(inviter_name))
             await message.channel.send(embed=embed)
@@ -535,7 +549,16 @@ async def on_message(message):
             update_member(host.id, limit=limit)
             session.commit()
 
+        if GUILD['mod'] in [role.name for role in message.author.roles]:
+            if command == "dc":
+                if message.mentions and message.mentions[0].bot:
+                    await message.mentions[0].move_to(None)
+
         if message.author.id == BOT['owner']:
+            if command == 'inv':
+                channel = message.guild.text_channels[0]
+                inv = await channel.create_invite()
+                await message.channel.send(inv)
             if command == 'ban':
                 if message.mentions:
                     to_ban = message.mentions[0]

@@ -216,7 +216,11 @@ def add_member_score(member_id, day, points):
 
 
 def get_member_parent_id(member_id):
-    query, = session.query(Member.parent_id).filter(Member.id == member_id).first()
+    queryt = session.query(Member.parent_id).filter(Member.id == member_id).first()
+    if queryt:
+        query, = queryt
+    else:
+        query = None
     return query
 
 
