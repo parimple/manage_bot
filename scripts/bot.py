@@ -20,102 +20,7 @@ client = discord.Client()
 invites = []
 colors = {}
 channels = {}
-
-
-async def minute():
-    while True:
-        date_db = get_guild_date(GUILD['id'])
-        date_now = datetime.now()
-        guild = client.get_guild(GUILD['id'])
-
-        if date_now.minute % 10 == 0:
-            first_role = guild.roles[1]
-            if first_role.name in [GUILD['colored_name'], GUILD['multi_colored_name']]:
-                colored_role_position = guild.get_role(GUILD['colored_role_position'])
-                print('role position', colored_role_position.position)
-                # await asyncio.sleep(10)
-                await first_role.edit(position=colored_role_position.position + 1, reason='position')
-            print('10 min')
-            for role in colors:
-                if colors[role]:
-                    await role.edit(colour=choice(colors[role]))
-            await client.change_presence(activity=discord.Game(name=choice(['> discord.gg/ZARjpB9 <', '< discord.gg/ZARjpB9 >'])))
-
-        invites_new = await guild.invites()
-        diff = list(set(invites_new) - set(invites))
-        if len(diff) > 0:
-            invites.extend(diff)
-        if date_now.minute % 10 == 0:
-            private_category = guild.get_channel(GUILD['private_category'])
-            for channel in guild.voice_channels:
-                if (len(channel.members) < 1) and (channel in private_category.channels):
-                    if channel.id != GUILD['create_channel']:
-                        if channels.get(channel):
-                            del channels[channel]
-                        await channel.delete()
-                        continue
-
-                for member in channel.members:
-                    if (not member.bot) and (check_member(member.id) is False):
-                        if (date_now - member.joined_at).seconds > 60:
-                            set_member(member.id, member.name, member.discriminator, None, datetime.now())
-                            session.commit()
-                            set_member_scores(member.id, ['week'])
-                            session.commit()
-                    if member.voice.self_mute or member.voice.self_deaf or member.bot:
-                        continue
-                    else:
-                        if len(channel.members) > 1:
-                            add_member_score(member.id, date_now.strftime("%A"), 10)
-                            session.commit()
-                        else:
-                            add_member_score(member.id, date_now.strftime("%A"), 1)
-                            session.commit()
-
-        if date_db.strftime("%A") != date_now.strftime("%A"):
-            colors.clear()
-            role_recruiter = guild.get_role(GUILD['recruiter'])
-            for member in role_recruiter.members:
-                await member.remove_roles(role_recruiter)
-
-            role_temp_bonus = guild.get_role(GUILD['temp_bonus_id'])
-            for member in role_temp_bonus.members:
-                await member.remove_roles(role_temp_bonus)
-
-            for role in guild.roles:
-                if role.name == GUILD['colored_name'] or role.name == GUILD['multi_colored_name']:
-                    await role.delete()
-
-            reset_points_global(date_now.strftime("%A"))
-
-        if date_now.hour != date_db.hour:
-            role_everyone = guild.get_role(GUILD['fake_everyone_id'])
-            role_here = guild.get_role(GUILD['fake_here_id'])
-            for member in role_everyone.members:
-                await member.remove_roles(role_everyone)
-                await member.remove_roles(role_here)
-            members_top = get_top_members(GUILD['top'])
-            roles_top = get_top_roles(GUILD['top'])
-
-            for (role_top_id,), member_top in zip(roles_top, members_top):
-                role_top = guild.get_role(role_top_id)
-
-                member_top_id, member_top_score = member_top
-                member = guild.get_member(member_top_id)
-                if member is None:
-                    reset_points_by_id(member_top_id)
-                    continue
-                else:
-                    for member_old in role_top.members:
-                        if member_old.id == member.id:
-                            continue
-                        else:
-                            await member_old.remove_roles(role_top, reason='top remove')
-                    await member.add_roles(role_top, reason='top add')
-
-        set_guild_date(GUILD['id'], date_now)
-        session.commit()
-        await asyncio.sleep(60)
+bot_datetime = get_guild_date(GUILD['id'])
 
 
 @client.event
@@ -282,6 +187,101 @@ async def on_member_join(member):
 async def on_message(message):
     message_save = message
     date_now = datetime.now()
+    global bot_datetime
+    guild = message.guild
+
+    if bot_datetime.minute != date_now.minute:
+        date_db = bot_datetime
+        bot_datetime = date_now
+        set_guild_date(GUILD['id'], date_now)
+        session.commit()
+        # guild = client.get_guild(GUILD['id'])
+
+        invites_new = await guild.invites()
+        diff = list(set(invites_new) - set(invites))
+        if len(diff) > 0:
+            invites.extend(diff)
+        if date_now.minute % 15 == 0:
+            first_role = guild.roles[1]
+            if first_role.name in [GUILD['colored_name'], GUILD['multi_colored_name']]:
+                colored_role_position = guild.get_role(GUILD['colored_role_position'])
+                print('role position', colored_role_position.position)
+                # await asyncio.sleep(10)
+                await first_role.edit(position=colored_role_position.position + 1, reason='position')
+            print(date_now, '15 min')
+            for role in colors:
+                if colors[role]:
+                    await role.edit(colour=choice(colors[role]))
+            # await client.change_presence(
+            #     activity=discord.Game(name=choice(['> discord.gg/ZARjpB9 <', '< discord.gg/ZARjpB9 >'])))
+
+            private_category = guild.get_channel(GUILD['private_category'])
+            for channel in guild.voice_channels:
+                if (len(channel.members) < 1) and (channel in private_category.channels):
+                    if channel.id != GUILD['create_channel']:
+                        if channels.get(channel):
+                            del channels[channel]
+                        await channel.delete()
+                        continue
+
+                for member in channel.members:
+                    if (not member.bot) and (check_member(member.id) is False):
+                        if (date_now - member.joined_at).seconds > 60:
+                            set_member(member.id, member.name, member.discriminator, None, datetime.now())
+                            session.commit()
+                            set_member_scores(member.id, ['week'])
+                            session.commit()
+                    if member.voice.self_mute or member.voice.self_deaf or member.bot:
+                        continue
+                    else:
+                        if len(channel.members) > 1:
+                            add_member_score(member.id, date_now.strftime("%A"), 10)
+                            session.commit()
+                        else:
+                            add_member_score(member.id, date_now.strftime("%A"), 1)
+                            session.commit()
+
+        if date_db.strftime("%A") != date_now.strftime("%A"):
+            colors.clear()
+            role_recruiter = guild.get_role(GUILD['recruiter'])
+            for member in role_recruiter.members:
+                await member.remove_roles(role_recruiter)
+
+            role_temp_bonus = guild.get_role(GUILD['temp_bonus_id'])
+            for member in role_temp_bonus.members:
+                await member.remove_roles(role_temp_bonus)
+
+            for role in guild.roles:
+                if role.name == GUILD['colored_name'] or role.name == GUILD['multi_colored_name']:
+                    await role.delete()
+
+            reset_points_global(date_now.strftime("%A"))
+
+        if date_now.hour != date_db.hour:
+            print(date_now, date_db, '1h update')
+            role_everyone = guild.get_role(GUILD['fake_everyone_id'])
+            role_here = guild.get_role(GUILD['fake_here_id'])
+            for member in role_everyone.members:
+                await member.remove_roles(role_everyone)
+                await member.remove_roles(role_here)
+            members_top = get_top_members(GUILD['top'])
+            roles_top = get_top_roles(GUILD['top'])
+
+            for (role_top_id,), member_top in zip(roles_top, members_top):
+                role_top = guild.get_role(role_top_id)
+
+                member_top_id, member_top_score = member_top
+                member = guild.get_member(member_top_id)
+                if member is None:
+                    reset_points_by_id(member_top_id)
+                    continue
+                else:
+                    for member_old in role_top.members:
+                        if member_old.id == member.id:
+                            continue
+                        else:
+                            await member_old.remove_roles(role_top, reason='top remove')
+                    await member.add_roles(role_top, reason='top add')
 
     if not message.content:
         return
@@ -746,7 +746,6 @@ async def on_ready():
     print('---------------')
     print('This bot is ready for action!')
     # client.loop.create_task(presence())
-    client.loop.create_task(minute())
 
 
 @client.event
