@@ -6,7 +6,7 @@ from datasources.queries import *
 import inspect
 import datasources.models as models
 import datasources.queries as queries
-from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS, BONUS
+from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS, BONUS, CHANNELS
 from datasources import session, engine
 from random import randint, choice
 from functions import *
@@ -72,14 +72,25 @@ async def on_voice_state_update(member, before, after):
 
                 for member, perms in other_perms.items():
                     await new_channel.set_permissions(member, overwrite=perms)
+            elif after.channel.id == GUILD['afk_channel_id']:
+                pass
+            elif after.channel.id in CHANNELS:
+                channel_name = 'private' if after.channel.id != 696760847736766524 else 'public'
+                new_channel = await guild.create_voice_channel(
+                    channel_name,
+                    category=after.channel.category,
+                    bitrate=GUILD['bitrate'],
+                    user_limit=CHANNELS[after.channel.id][1],
+                )
+                await member.move_to(new_channel)
 
     if before.channel:
         if before.channel != after.channel:
-            if before.channel in private_category.channels:
-                if (len(before.channel.members) == 0) and before.channel.id != GUILD['create_channel']:
-                    if before.channel in channels:
-                        del channels[before.channel]
-                    await before.channel.delete()
+            if (len(before.channel.members) == 0) and (before.channel.id not in CHANNELS):
+                if before.channel in channels:
+                    del channels[before.channel]
+                await before.channel.delete()
+            # elif before.channel
 
 
 @client.event
@@ -215,14 +226,13 @@ async def on_message(message):
             # await client.change_presence(
             #     activity=discord.Game(name=choice(['> discord.gg/ZARjpB9 <', '< discord.gg/ZARjpB9 >'])))
 
-            private_category = guild.get_channel(GUILD['private_category'])
+            # private_category = guild.get_channel(GUILD['private_category'])
             for channel in guild.voice_channels:
-                if (len(channel.members) < 1) and (channel in private_category.channels):
-                    if channel.id != GUILD['create_channel']:
-                        if channels.get(channel):
-                            del channels[channel]
-                        await channel.delete()
-                        continue
+                if (len(channel.members) < 1) and (channel.id not in CHANNELS):
+                    if channels.get(channel):
+                        del channels[channel]
+                    await channel.delete()
+                    continue
 
                 for member in channel.members:
                     if (not member.bot) and (check_member(member.id) is False):
@@ -235,10 +245,10 @@ async def on_message(message):
                         continue
                     else:
                         if len(channel.members) > 1:
-                            add_member_score(member.id, date_now.strftime("%A"), 10)
+                            add_member_score(member.id, date_now.strftime("%A"), 15)
                             session.commit()
                         else:
-                            add_member_score(member.id, date_now.strftime("%A"), 1)
+                            add_member_score(member.id, date_now.strftime("%A"), 2)
                             session.commit()
 
         if date_db.strftime("%A") != date_now.strftime("%A"):
@@ -480,7 +490,8 @@ async def on_message(message):
                     session.commit()
                 if command in ['reset', 'r']:
                     temp_channels = {k: v for k, v in channels.items() if v}
-                    for channel in temp_channels:
+                    for channel_ in temp_channels:
+                        channel = guild.get_channel[channel_.id]
                         if host == temp_channels[channel]:
                             await channel.set_permissions(guest, overwrite=None)
                             if guest in channel.members:
@@ -491,18 +502,25 @@ async def on_message(message):
                     session.commit()
                 elif command in ['speak', 's']:
                     temp_channels = {k: v for k, v in channels.items() if v}
-                    for channel in temp_channels:
+                    for channel_ in temp_channels:
+                        channel = guild.get_channel(channel_.id)
                         if host == temp_channels[channel]:
                             await channel.set_permissions(guest, speak=parameter)
+                            print(guest.id)
+                            print([member.id for member in channel.members])
                             if guest in channel.members:
+                                print('jest')
                                 afk_channel = message.guild.get_channel(GUILD['afk_channel_id'])
                                 await guest.move_to(afk_channel)
+                                print('move')
                                 await guest.move_to(channel)
+                                print('move2')
                     update_member_member(host.id, guest.id, speak=parameter)
                     session.commit()
                 elif command in ['connect', 'c']:
                     temp_channels = {k: v for k, v in channels.items() if v}
-                    for channel in temp_channels:
+                    for channel_ in temp_channels:
+                        channel = guild.get_channel(channel_.id)
                         if host == temp_channels[channel]:
                             await channel.set_permissions(guest, connect=parameter)
                             if parameter is False:
@@ -512,7 +530,8 @@ async def on_message(message):
                     session.commit()
                 elif command in ['view', 'v']:
                     temp_channels = {k: v for k, v in channels.items() if v}
-                    for channel in temp_channels:
+                    for channel_ in temp_channels:
+                        channel = guild.get_channel(channel_.id)
                         if host == temp_channels[channel]:
                             await channel.set_permissions(guest, view_channel=parameter)
                             if parameter is False:
