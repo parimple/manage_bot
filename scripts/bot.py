@@ -6,7 +6,7 @@ from datasources.queries import *
 import inspect
 import datasources.models as models
 import datasources.queries as queries
-from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS, BONUS, CHANNELS
+from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS, BONUS, CHANNELS, EMOJIS
 from datasources import session, engine
 from random import randint, choice
 from functions import *
@@ -75,7 +75,7 @@ async def on_voice_state_update(member, before, after):
             elif after.channel.id == GUILD['afk_channel_id']:
                 pass
             elif after.channel.id in CHANNELS:
-                channel_name = 'private' if after.channel.id != 696760847736766524 else 'public'
+                channel_name = 'private'+choice(EMOJIS) if after.channel.id != 696760847736766524 else 'public'+choice(EMOJIS)
                 new_channel = await guild.create_voice_channel(
                     channel_name,
                     category=after.channel.category,
