@@ -20,6 +20,9 @@ client = discord.Client()
 invites = []
 colors = {}
 channels = {}
+#x = datetime.now() - timedelta(hours=6)
+#set_guild_date(560189268304330772, x)
+#session.commit()
 bot_datetime = get_guild_date(GUILD['id'])
 
 
@@ -75,7 +78,7 @@ async def on_voice_state_update(member, before, after):
             elif after.channel.id == GUILD['afk_channel_id']:
                 pass
             elif after.channel.id in CHANNELS:
-                channel_name = 'private'+choice(EMOJIS) if after.channel.id != 696760847736766524 else 'public'+choice(EMOJIS)
+                channel_name = choice(EMOJIS)+' private' if after.channel.id != 696760847736766524 else choice(EMOJIS)+' public'
                 new_channel = await guild.create_voice_channel(
                     channel_name,
                     category=after.channel.category,
@@ -254,6 +257,7 @@ async def on_message(message):
         if date_db.strftime("%A") != date_now.strftime("%A"):
             colors.clear()
             role_recruiter = guild.get_role(GUILD['recruiter'])
+            role_patreon_4 = guild.get_role(GUILD['patreon_4_id'])
             for member in role_recruiter.members:
                 await member.remove_roles(role_recruiter)
 
@@ -263,7 +267,10 @@ async def on_message(message):
 
             for role in guild.roles:
                 if role.name == GUILD['colored_name'] or role.name == GUILD['multi_colored_name']:
-                    await role.delete()
+                    if len(role.members) == 0:
+                        await role.delete()
+                    elif role.members.pop(0) not in role_patreon_4.members:
+                        await role.delete()
 
             reset_points_global(date_now.strftime("%A"))
 
@@ -602,6 +609,9 @@ async def on_message(message):
                 channel = message.guild.text_channels[0]
                 inv = await channel.create_invite()
                 await message.channel.send(inv)
+            if command == 'new_date':
+                set_guild_date(guild.id, datetime.now() - timedelta(hours=6))
+                session.commit()
             if command == 'ban':
                 if message.mentions:
                     to_ban = message.mentions[0]
