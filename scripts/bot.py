@@ -368,7 +368,7 @@ async def on_message(message):
     session.commit()
 
     if not message.attachments and message.content[0] == BOT['prefix']:
-        command = args.pop(0)[1:]
+        command = args.pop(0)[1:].lower()
         print(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), message.author, command, args)
         if command in ['reset_color', 'rc']:
             for role in message.author.roles:
@@ -495,6 +495,8 @@ async def on_message(message):
                 if not overwrites:
                     set_member_member(host.id, guest.id)
                     session.commit()
+                    overwrites = get_member_member(host.id, guest.id)
+                view_channel, connect, speak = overwrites
                 if command in ['reset', 'r']:
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel_ in temp_channels:
@@ -508,11 +510,16 @@ async def on_message(message):
                     update_member_member(host.id, guest.id, speak=None, connect=None, view_channel=None)
                     session.commit()
                 elif command in ['speak', 's']:
+                    permission_overwrites = discord.PermissionOverwrite(
+                            read_messages=view_channel,
+                            connect=connect,
+                            speak=parameter)
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel_ in temp_channels:
                         channel = guild.get_channel(channel_.id)
                         if host == temp_channels[channel]:
-                            await channel.set_permissions(guest, speak=parameter)
+                            # await channel.set_permissions(guest, speak=parameter)
+                            await channel.set_permissions(guest, overwrite=permission_overwrites)
                             print(guest.id)
                             print([member.id for member in channel.members])
                             if guest in channel.members:
@@ -524,23 +531,33 @@ async def on_message(message):
                                 print('move2')
                     update_member_member(host.id, guest.id, speak=parameter)
                     session.commit()
-                elif command in ['connect', 'c']:
+                elif command in ['connect','c']:
+                    permission_overwrites = discord.PermissionOverwrite(
+                            read_messages=view_channel,
+                            connect=parameter,
+                            speak=speak)
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel_ in temp_channels:
                         channel = guild.get_channel(channel_.id)
                         if host == temp_channels[channel]:
-                            await channel.set_permissions(guest, connect=parameter)
+                            # await channel.set_permissions(guest, connect=parameter)
+                            await channel.set_permissions(guest, overwrite=permission_overwrites)
                             if parameter is False:
                                 if guest in channel.members:
                                     await guest.move_to(None)
                     update_member_member(host.id, guest.id, connect=parameter)
                     session.commit()
                 elif command in ['view', 'v']:
+                    permission_overwrites = discord.PermissionOverwrite(
+                            read_messages=parameter,
+                            connect=connect,
+                            speak=speak)
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel_ in temp_channels:
                         channel = guild.get_channel(channel_.id)
                         if host == temp_channels[channel]:
-                            await channel.set_permissions(guest, view_channel=parameter)
+                            # await channel.set_permissions(guest, view_channel=parameter)
+                            await channel.set_permissions(guest, overwrite=permission_overwrites)
                             if parameter is False:
                                 if guest in channel.members:
                                     await guest.move_to(None)
