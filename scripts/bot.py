@@ -29,10 +29,12 @@ bot_datetime = get_guild_date(GUILD['id'])
 @client.event
 async def on_voice_state_update(member, before, after):
     guild = member.guild
+    nsfw = guild.get_role(GUILD['nsfw_id'])
     private_category = guild.get_channel(GUILD['private_category'])
+    private_category_p = guild.get_channel(GUILD['private_category_p'])
     if after.channel:
         if before.channel != after.channel:
-            if after.channel.id == GUILD['create_channel']:
+            if after.channel.id in [GUILD['create_channel'], GUILD['create_channel_p']]:
                 overwrite = get_member_permissions(member.id)
                 permission_overwrites = {
                     guild.default_role: discord.PermissionOverwrite(read_messages=overwrite.host_everyone_view_channel,
@@ -54,6 +56,8 @@ async def on_voice_state_update(member, before, after):
                     connect=True,
                     speak=True,
                     move_members=False)
+                permission_overwrites[nsfw] = discord.PermissionOverwrite(
+                        stream=False)
 
                 # chunks = math.ceil(len(permission_overwrites) / 95)
                 # print('chunks', chunks)
@@ -78,14 +82,18 @@ async def on_voice_state_update(member, before, after):
             elif after.channel.id == GUILD['afk_channel_id']:
                 pass
             elif after.channel.id in CHANNELS:
-                channel_name = choice(EMOJIS)+' private' if after.channel.id != 696760847736766524 else choice(EMOJIS)+' public'
+                channel_name = choice(EMOJIS)+' private' if after.channel.id not in [696760847736766524, 715466140679143466] else choice(EMOJIS)+' public'
+                permission_overwrites = {nsfw: discord.PermissionOverwrite(
+                        stream=False)}
                 new_channel = await guild.create_voice_channel(
                     channel_name,
                     category=after.channel.category,
                     bitrate=GUILD['bitrate'],
                     user_limit=CHANNELS[after.channel.id][1],
+                    overwrites=permission_overwrites
                 )
                 await member.move_to(new_channel)
+
 
     if before.channel:
         if before.channel != after.channel:
@@ -357,7 +365,7 @@ async def on_message(message):
             session.commit()
             set_member_scores(message.author.id, ['week'])
             session.commit()
-    add_member_score(message.author.id, date_now.strftime("%A"), points)
+    add_member_score(message.author.id, date_now.strftime("%A"), points*2)
     session.commit()
 
     parent_id = get_member_parent_id(message.author.id)
@@ -467,7 +475,8 @@ async def on_message(message):
             return
         if command in ['speak', 's', 'connect', 'c', 'view', 'v', 'reset', 'r']:
             if (message.author not in message.author.guild.get_role(GUILD['join_id']).members) and \
-                    (message.author not in message.author.guild.get_role(GUILD['nitro_booster_id']).members):
+                    (message.author not in message.author.guild.get_role(GUILD['nitro_booster_id']).members) and\
+                    (message.author not in message.author.guild.get_role(GUILD['patreon_2_id']).members):
                 print('nie ma')
                 return
             if (len(args) < 1) and command not in ['reset', 'r']:
@@ -735,7 +744,7 @@ Jest to autorski system rankingu aktywności, stworzony na potrzeby tego serwera
 **32 osoby ✪ - osoba po uzyskaniu danej liczby zaproszeń, jest pierwszej kolejności brana pod uwagę, przy wyborze moderatora**
 64+ osoby ♸ - indywidualna ranga, możesz zmieniać jej kolor za pomocą komendy np `?color light blue` do końca dnia
 128+ osób ♹ - indywidualna ranga jak wyżej, z tą różnicą że cyklicznie zmienia ona wybrane przez Ciebie kolory
-256 osób ⚀ - +25% punktów na stałe
+256 osób ⚀ -dostep do kanalu premium, +25% punktów na stałe
 512, 1024, 2048 ⚁⚂⚃ - +25% punktów na stałe + **nitro** (lub równowartość pln)
 + oznacza, że w następnym dniu, rola się odświeży po dołączeniu jednej osoby
 
