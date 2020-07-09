@@ -29,7 +29,7 @@ bot_datetime = get_guild_date(GUILD['id'])
 @client.event
 async def on_voice_state_update(member, before, after):
     guild = member.guild
-    nsfw = guild.get_role(GUILD['nsfw_id'])
+    nsfw = guild.get_role(GUILD['video_ban'])
     private_category = guild.get_channel(GUILD['private_category'])
     private_category_p = guild.get_channel(GUILD['private_category_p'])
     if after.channel:
@@ -70,7 +70,7 @@ async def on_voice_state_update(member, before, after):
                 new_channel = await guild.create_voice_channel(
                     member.display_name,
                     category=after.channel.category,
-                    bitrate=GUILD['bitrate'],
+                    bitrate=guild.bitrate_limit,
                     user_limit=overwrite.host_channel_limit,
                     overwrites=first95)
 
@@ -88,7 +88,7 @@ async def on_voice_state_update(member, before, after):
                 new_channel = await guild.create_voice_channel(
                     channel_name,
                     category=after.channel.category,
-                    bitrate=GUILD['bitrate'],
+                    bitrate=guild.bitrate_limit,
                     user_limit=CHANNELS[after.channel.id][1],
                     overwrites=permission_overwrites
                 )
@@ -365,7 +365,7 @@ async def on_message(message):
             session.commit()
             set_member_scores(message.author.id, ['week'])
             session.commit()
-    add_member_score(message.author.id, date_now.strftime("%A"), points*2)
+    add_member_score(message.author.id, date_now.strftime("%A"), points)
     session.commit()
 
     parent_id = get_member_parent_id(message.author.id)
@@ -646,7 +646,7 @@ async def on_message(message):
                     to_ban_id = args.pop(0).strip('<@!>')
                     to_ban = await client.fetch_user(to_ban_id)
                     print(to_ban)
-            if command == 'ban_all':
+            if command in ['banall', 'ban_all']:
                 if message.mentions:
                     inviter = message.mentions[0]
                 else:
@@ -663,7 +663,7 @@ async def on_message(message):
                         await message.guild.ban(member)
                     except discord.errors.NotFound:
                         continue
-            if command == 'show_all':
+            if command == 'showall':
                 if message.mentions:
                     inviter = message.mentions[0]
                 else:
@@ -692,19 +692,19 @@ async def on_message(message):
                 # except:
                 #     print('eval except')
                 # if type(evaled) !=
-            if command == 'dateTime':
+            if command == 'datetime':
                 print(date_now.strftime("%A"))
             elif command == 'addNsfw':
                 members = message.guild.members
                 for member in members:
                     if (date_now - member.created_at).days < 14:
                         await member.add_roles(message.guild.get_role(GUILD['nsfw_id']), reason='nsfw new account')
-            elif command == 'clear_roles':
+            elif command == 'clearroles':
                 for role in message.guild.roles:
                     if role.name in [GUILD['colored_name'], GUILD['multi_colored_name']]:
                         await role.delete()
 
-            elif command == 'resetPoints':
+            elif command == 'resetpoints':
                 if len(args) > 0:
                     if message.mentions:
                         reset_points_by_id(message.mentions[0].id)
