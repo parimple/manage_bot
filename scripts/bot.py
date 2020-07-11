@@ -509,7 +509,7 @@ async def on_message(message):
                 if command in ['reset', 'r']:
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel_ in temp_channels:
-                        channel = guild.get_channel[channel_.id]
+                        channel = guild.get_channel(channel_.id)
                         if host == temp_channels[channel]:
                             await channel.set_permissions(guest, overwrite=None)
                             if guest in channel.members:
