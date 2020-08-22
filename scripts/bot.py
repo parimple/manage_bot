@@ -75,7 +75,7 @@ async def on_voice_state_update(member, before, after):
                     overwrites=first95)
 
                 await member.move_to(new_channel)
-                channels[new_channel] = member
+                channels[new_channel.id] = member.id
 
                 for member, perms in other_perms.items():
                     await new_channel.set_permissions(member, overwrite=perms)
@@ -92,14 +92,17 @@ async def on_voice_state_update(member, before, after):
                     user_limit=CHANNELS[after.channel.id][1],
                     overwrites=permission_overwrites
                 )
-                await member.move_to(new_channel)
+                try:
+                    await member.move_to(new_channel)
+                except (discord.errors.NotFound, discord.errors.HTTPException) as e:
+                    pass
 
 
     if before.channel:
         if before.channel != after.channel:
             if (len(before.channel.members) == 0) and (before.channel.id not in CHANNELS):
-                if before.channel in channels:
-                    del channels[before.channel]
+                if before.channel.id in channels:
+                    del channels[before.channel.id]
                 await before.channel.delete()
             # elif before.channel
 
@@ -116,8 +119,9 @@ async def on_member_join(member):
             if host:
                 print(host)
                 temp_channels = {k: v for k, v in channels.items() if v}
-                for channel in temp_channels:
-                    if host == temp_channels[channel]:
+                for channel_id in temp_channels:
+                    if host.id == temp_channels[channel_id]:
+                        channel = guild.get_channel(channel_id)
                         await channel.set_permissions(member,
                                                       speak=host_id.speak,
                                                       connect=host_id.connect,
@@ -240,8 +244,8 @@ async def on_message(message):
             # private_category = guild.get_channel(GUILD['private_category'])
             for channel in guild.voice_channels:
                 if (len(channel.members) < 1) and (channel.id not in CHANNELS):
-                    if channels.get(channel):
-                        del channels[channel]
+                    if channels.get(channel.id):
+                        del channels[channel.id]
                     await channel.delete()
                     continue
 
@@ -509,8 +513,8 @@ async def on_message(message):
                 if command in ['reset', 'r']:
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel_ in temp_channels:
-                        channel = guild.get_channel(channel_.id)
-                        if host == temp_channels[channel]:
+                        channel = guild.get_channel(channel_)
+                        if host.id == temp_channels[channel.id]:
                             await channel.set_permissions(guest, overwrite=None)
                             if guest in channel.members:
                                 afk_channel = message.guild.get_channel(GUILD['afk_channel_id'])
@@ -525,8 +529,8 @@ async def on_message(message):
                             speak=parameter)
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel_ in temp_channels:
-                        channel = guild.get_channel(channel_.id)
-                        if host == temp_channels[channel]:
+                        channel = guild.get_channel(channel_)
+                        if host.id == temp_channels[channel.id]:
                             # await channel.set_permissions(guest, speak=parameter)
                             await channel.set_permissions(guest, overwrite=permission_overwrites)
                             print(guest.id)
@@ -547,8 +551,8 @@ async def on_message(message):
                             speak=speak)
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel_ in temp_channels:
-                        channel = guild.get_channel(channel_.id)
-                        if host == temp_channels[channel]:
+                        channel = guild.get_channel(channel_)
+                        if host.id == temp_channels[channel.id]:
                             # await channel.set_permissions(guest, connect=parameter)
                             await channel.set_permissions(guest, overwrite=permission_overwrites)
                             if parameter is False:
@@ -563,8 +567,8 @@ async def on_message(message):
                             speak=speak)
                     temp_channels = {k: v for k, v in channels.items() if v}
                     for channel_ in temp_channels:
-                        channel = guild.get_channel(channel_.id)
-                        if host == temp_channels[channel]:
+                        channel = guild.get_channel(channel_)
+                        if host.id == temp_channels[channel.id]:
                             # await channel.set_permissions(guest, view_channel=parameter)
                             await channel.set_permissions(guest, overwrite=permission_overwrites)
                             if parameter is False:
@@ -584,22 +588,25 @@ async def on_message(message):
                         return
                 elif command in ['speak', 's']:
                     temp_channels = {k: v for k, v in channels.items() if v}
-                    for channel in temp_channels:
-                        if host == temp_channels[channel]:
+                    for channel_id in temp_channels:
+                        if host.id == temp_channels[channel_id]:
+                            channel = guild.get_channel(channel_id)
                             await channel.set_permissions(message.guild.default_role, speak=parameter)
                     update_member(host.id, speak=parameter)
                     session.commit()
                 elif command in ['connect', 'c']:
                     temp_channels = {k: v for k, v in channels.items() if v}
-                    for channel in temp_channels:
-                        if host == temp_channels[channel]:
+                    for channel_id in temp_channels:
+                        if host.id == temp_channels[channel_id]:
+                            channel = guild.get_channel(channel_id)
                             await channel.set_permissions(message.guild.default_role, connect=parameter)
                     update_member(host.id, connect=parameter)
                     session.commit()
                 elif command in ['view', 'v']:
                     temp_channels = {k: v for k, v in channels.items() if v}
-                    for channel in temp_channels:
-                        if host == temp_channels[channel]:
+                    for channel_id in temp_channels:
+                        if host.id == temp_channels[channel_id]:
+                            channel = guild.get_channel(channel_id)
                             await channel.set_permissions(message.guild.default_role, view_channel=parameter)
                     update_member(host.id, view_channel=parameter)
                     session.commit()
@@ -619,8 +626,9 @@ async def on_message(message):
             else:
                 return
             temp_channels = {k: v for k, v in channels.items() if v}
-            for channel in temp_channels:
-                if host == temp_channels[channel]:
+            for channel_id in temp_channels:
+                if host.id == temp_channels[channel_id]:
+                    channel = guild.get_channel(channel_id)
                     await channel.edit(user_limit=limit)
             update_member(host.id, limit=limit)
             session.commit()
@@ -754,6 +762,9 @@ Jest to autorski system rankingu aktywności, stworzony na potrzeby tego serwera
                 await message_old.edit(content=content)
             elif command == 'everyone':
                 await message.channel.send('@everyone')
+                await message.delete()
+            elif command == 'here':
+                await message.channel.send('@here')
                 await message.delete()
             elif command == 'rgb':
                 message_rgb = await message.channel.send(GUILD['roles_rgb'])
