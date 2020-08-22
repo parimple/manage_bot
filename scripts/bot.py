@@ -103,7 +103,10 @@ async def on_voice_state_update(member, before, after):
             if (len(before.channel.members) == 0) and (before.channel.id not in CHANNELS):
                 if before.channel.id in channels:
                     del channels[before.channel.id]
-                await before.channel.delete()
+                try:
+                    await before.channel.delete()
+                except NotFound:
+                    pass
             # elif before.channel
 
 
