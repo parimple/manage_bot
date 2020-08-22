@@ -76,4 +76,5 @@ class Member(Base):
     host_everyone_speak = Column(BOOLEAN)
     host_channel_limit = Column(INTEGER)
     joined_at = Column(DATETIME)
+    patreon_to = Column(DATETIME)
 

@@ -14,7 +14,7 @@ from colour import Color
 import math
 
 if not engine.dialect.has_table(engine, 'member'):
-    datasources.models.Base.metadata.create_all(engine)
+    models.Base.metadata.create_all(engine)
 
 client = discord.Client()
 invites = []
@@ -97,7 +97,6 @@ async def on_voice_state_update(member, before, after):
                 except (discord.errors.NotFound, discord.errors.HTTPException) as e:
                     pass
 
-
     if before.channel:
         if before.channel != after.channel:
             if (len(before.channel.members) == 0) and (before.channel.id not in CHANNELS):
@@ -105,7 +104,7 @@ async def on_voice_state_update(member, before, after):
                     del channels[before.channel.id]
                 try:
                     await before.channel.delete()
-                except NotFound:
+                except discord.errors.NotFound:
                     pass
             # elif before.channel
 
@@ -649,14 +648,25 @@ async def on_message(message):
             if command == 'new_date':
                 set_guild_date(guild.id, datetime.now() - timedelta(hours=6))
                 session.commit()
+            if command == 'patreon':
+                pass
             if command == 'ban':
                 if message.mentions:
-                    to_ban = message.mentions[0]
-                    print(to_ban)
+                    to_ban_id = message.mentions[0].id
+                    # to_ban = message.mentions[0]
+                    # print(to_ban)
                 else:
                     to_ban_id = args.pop(0).strip('<@!>')
-                    to_ban = await client.fetch_user(to_ban_id)
-                    print(to_ban)
+                    # to_ban = await client.fetch_user(to_ban_id)
+                    # print(to_ban)
+                to_ban = discord.Object(to_ban_id)
+                print(to_ban)
+                try:
+                    await message.channel.send('<@{}> banned'.format(to_ban_id))
+                    await message.guild.ban(to_ban)
+                except discord.errors.NotFound:
+                    pass
+
             if command in ['banall', 'ban_all']:
                 if message.mentions:
                     inviter = message.mentions[0]
