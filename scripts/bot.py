@@ -832,6 +832,37 @@ async def on_invite_create(invite):
     print('invite created')
     invites.append(invite)
 
+
+@client.event
+async def on_member_update(before, after):
+    member = after
+    guild = after.guild
+    member_role_ids = [role.id for role in after.roles]
+    member_role_names = [role.name for role in after.roles]
+    new_roles = list(set(after.roles)-set(before.roles))
+
+    if GUILD['patreon_8_id'] in [role.id for role in new_roles]:
+        if not GUILD['multi_colored_name'] in member_role_names:
+            colored_role = await guild.create_role(name=GUILD['multi_colored_name'])
+            colored_role_position = guild.get_role(GUILD['colored_role_position'])
+            await member.add_roles(colored_role, reason='patreon $8')
+            await colored_role.edit(position=colored_role_position.position + 1, reason='position')
+    if GUILD['patreon_4_id'] in [role.id for role in new_roles]:
+        if GUILD['patreon_8_id'] in [role.id for role in new_roles]:
+            pass
+        else:
+            if not GUILD['colored_name'] in member_role_names:
+                colored_role = await guild.create_role(name=GUILD['colored_name'])
+                colored_role_position = guild.get_role(GUILD['colored_role_position'])
+                await member.add_roles(colored_role, reason='patreon $4')
+                await colored_role.edit(position=colored_role_position.position + 1, reason='position')
+    if GUILD['patreon_2_id'] in [role.id for role in new_roles]:
+        if not GUILD['patreon_all_id'] in member_role_ids:
+            default_patreon = guild.get_role(GUILD['patreon_all_id'])
+            await member.add_roles(default_patreon, reason='patreon $2')
+    else:
+        pass
+
 if __name__ == '__main__':
     try:
         client.run(BOT['token'])
