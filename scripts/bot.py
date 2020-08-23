@@ -848,7 +848,8 @@ async def on_member_update(before, after):
             await member.add_roles(colored_role, reason='patreon $8')
             await colored_role.edit(position=colored_role_position.position + 1, reason='position')
     if GUILD['patreon_4_id'] in [role.id for role in new_roles]:
-        if GUILD['patreon_8_id'] in [role.id for role in new_roles]:
+        print(member_role_names)
+        if GUILD['patreon_8_id'] in member_role_ids:
             pass
         else:
             if not GUILD['colored_name'] in member_role_names:
@@ -860,8 +861,7 @@ async def on_member_update(before, after):
         if not GUILD['patreon_all_id'] in member_role_ids:
             default_patreon = guild.get_role(GUILD['patreon_all_id'])
             await member.add_roles(default_patreon, reason='patreon $2')
-    else:
-        pass
+
 
 if __name__ == '__main__':
     try:
