@@ -171,6 +171,17 @@ def get_member_permissions(member_id):
     return query
 
 
+def get_patreon_date(member_id):
+    query = session.query(Member.patreon_to).filter(Member.id == member_id).first()
+    return query.patreon_to
+
+
+def set_patreon_date(member_id, date):
+    query = session.query(Member).filter(Member.id == member_id).first()
+    query.patreon_to = date
+    return
+
+
 def get_member_guests(member_id):
     query = session.query(MemberMember.member_guest,
                           MemberMember.view_channel,

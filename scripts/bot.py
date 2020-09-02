@@ -6,11 +6,12 @@ from datasources.queries import *
 import inspect
 import datasources.models as models
 import datasources.queries as queries
-from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS, BONUS, CHANNELS, EMOJIS
+from mappings import BOT, GUILD, COMMANDS, MUSIC_PREFIX, MUSIC_COMMANDS, BONUS, CHANNELS, EMOJIS, PATREON
 from datasources import session, engine
 from random import randint, choice
 from functions import *
 from colour import Color
+from selenium import webdriver, common
 import math
 
 if not engine.dialect.has_table(engine, 'member'):
@@ -59,11 +60,6 @@ async def on_voice_state_update(member, before, after):
                 permission_overwrites[nsfw] = discord.PermissionOverwrite(
                         stream=False)
 
-                # chunks = math.ceil(len(permission_overwrites) / 95)
-                # print('chunks', chunks)
-                # overwrites_list = split_dict_equally(permission_overwrites, chunks)
-                # from pprint import pprint
-                # pprint(overwrites_list)
                 first95 = {k: permission_overwrites[k] for k in list(permission_overwrites)[:95]}
                 other_perms = {k: permission_overwrites[k] for k in list(permission_overwrites)[95:]}
 
@@ -113,7 +109,6 @@ async def on_voice_state_update(member, before, after):
 async def on_member_join(member):
     member_hosts = get_member_hosts(member.id)
     guild = member.guild
-    # print(member_hosts)
     if member_hosts:
         for host_id in member_hosts:
             print(host_id.speak, host_id.connect, host_id.view_channel)
@@ -197,7 +192,7 @@ async def on_member_join(member):
                                 await inviter.add_roles(member.guild.get_role(BONUS['bonus_3_id']), reason='bonus')
 
         else:
-            set_member(member.id, member.name, member.discriminator, None, datetime.now())
+            set_member(member.id, member.name, member.discriminator, client.user.id, datetime.now())
         session.commit()
         set_member_scores(member.id, ['week'])
         session.commit()
@@ -207,8 +202,8 @@ async def on_member_join(member):
                              .format(member.mention, member.display_name, invite.inviter, invite.inviter.id,
                                      invite.code, invite.uses))
     else:
-        await join_logs.send('member: {}, display_name: {}, inviter: {}'
-                             .format(member.mention, member.display_name, None))
+        await join_logs.send('member: {}, display_name: {}, inviter: <@{}>'
+                             .format(member.mention, member.display_name, client.user.id))
 
 
 @client.event
@@ -236,6 +231,10 @@ async def on_message(message):
                 print('role position', colored_role_position.position)
                 # await asyncio.sleep(10)
                 await first_role.edit(position=colored_role_position.position + 1, reason='position')
+            if first_role.name.startswith(GUILD['guild_name']):
+                team_role_position = guild.get_role(GUILD['team_role_position'])
+                print('role position', team_role_position.position)
+                await first_role.edit(position=team_role_position.position + 1, reason='position')
             print(date_now, '15 min')
             for role in colors:
                 if colors[role]:
@@ -267,6 +266,50 @@ async def on_message(message):
                         else:
                             add_member_score(member.id, date_now.strftime("%A"), 2)
                             session.commit()
+
+            options = webdriver.ChromeOptions()
+            options.headless = True
+            driver = webdriver.Chrome('drivers/chromedriver', options=options)
+            driver.implicitly_wait(15)
+            driver.get(GUILD['today_patreons'])
+            try:
+                p_element = driver.find_element_by_xpath('/html/body/div/div/div')
+            except common.exceptions.NoSuchElementException:
+                p_element = None
+                print('error find xpath')
+                pass
+
+            if p_element:
+                elements = p_element.text.split('\n')
+                patrons = [elements[i:i + 3] for i in range(0, len(elements), 3)]
+                if patrons:
+                    patrons.append(['bohun', ':', '40,00 zł'])
+                    # patrons.append(['727588046123434044', ':', '50,00 zł'])
+                    print(patrons)
+                    for member_id, _, tip_string in patrons:
+                        try:
+                            member = guild.get_member(int(member_id))
+                        except ValueError:
+                            member = None
+                        if not member:
+                            member = guild.get_member_named(member_id)
+                        if member:
+                            tip = int(tip_string.split(',')[0])
+                            roles = []
+                            for tier in PATREON:
+                                if tier <= tip:
+                                    role = guild.get_role(PATREON[tier])
+                                    if role not in member.roles:
+                                        roles.append(role)
+                                else:
+                                    await member.add_roles(*roles, reason='patreon')
+                                    patreon_date_to = get_patreon_date(member.id)
+                                    if not patreon_date_to:
+                                        set_patreon_date(member.id, datetime.now() + timedelta(days=30))
+                                        break
+                                    if patreon_date_to - datetime.now() > timedelta(days=1):
+                                        set_patreon_date(member.id, datetime.now() + timedelta(days=30))
+                                    break
 
         if date_db.strftime("%A") != date_now.strftime("%A"):
             colors.clear()
@@ -538,12 +581,9 @@ async def on_message(message):
                             print(guest.id)
                             print([member.id for member in channel.members])
                             if guest in channel.members:
-                                print('jest')
                                 afk_channel = message.guild.get_channel(GUILD['afk_channel_id'])
                                 await guest.move_to(afk_channel)
-                                print('move')
                                 await guest.move_to(channel)
-                                print('move2')
                     update_member_member(host.id, guest.id, speak=parameter)
                     session.commit()
                 elif command in ['connect','c']:
@@ -634,6 +674,45 @@ async def on_message(message):
                     await channel.edit(user_limit=limit)
             update_member(host.id, limit=limit)
             session.commit()
+        if GUILD['patreon_8_id'] in [role.id for role in message.author.roles]:
+            if command in ['teamname', 'team_name', 'tn']:
+                team_name = GUILD['guild_name'] + ' ' + ' '.join(args)
+                team_name_2 = ' '.join(args) + GUILD['guild_name']
+                for role in message.author.roles:
+                    if role.name.startswith(GUILD['guild_name']):
+                        await role.edit(name=team_name, reason='team name')
+                        break
+                team_category = message.guild.get_channel(GUILD['team_category'])
+                for team_channel in team_category.text_channels:
+                    if int(team_channel.topic) == message.author.id:
+                        await team_channel.edit(name=team_name_2, reason='team name')
+                        break
+            if command in ['team']:
+                for role in message.author.roles:
+                    if role.name.startswith(GUILD['guild_name']):
+                        parameter = args.pop(0)
+                        if parameter in BOT['false']:
+                            parameter = False
+                        else:
+                            parameter = True
+                        if message.mentions:
+                            team_member = message.mentions[0]
+                            if team_member.id == message.author.id:
+                                return
+                            if parameter:
+                                if GUILD['patreon_8_id'] in [role.id for role in team_member.roles]:
+                                    await message.channel.send('This user has his own team!')
+                                    return
+                                limit = 0
+                                for limit_role_id in GUILD['limit_roles']:
+                                    if limit_role_id in [role.id for role in message.author.roles]:
+                                        limit += GUILD['team_limits']
+                                if len(role.members) < limit:
+                                    await team_member.add_roles(role, reason='add to team')
+                                else:
+                                    await message.channel.send('maximum number of members: {}'.format(limit))
+                            else:
+                                await team_member.remove_roles(role, reason='remove from team')
 
         if GUILD['mod'] in [role.name for role in message.author.roles]:
             if command == "dc":
@@ -829,7 +908,7 @@ async def on_ready():
 
 @client.event
 async def on_invite_create(invite):
-    print('invite created')
+    # print('invite created')
     invites.append(invite)
 
 
@@ -839,16 +918,54 @@ async def on_member_update(before, after):
     guild = after.guild
     member_role_ids = [role.id for role in after.roles]
     member_role_names = [role.name for role in after.roles]
-    new_roles = list(set(after.roles)-set(before.roles))
+    new_roles = list(set(after.roles) - set(before.roles))
 
     if GUILD['patreon_8_id'] in [role.id for role in new_roles]:
+        colored_role_position = guild.get_role(GUILD['colored_role_position'])
         if not GUILD['multi_colored_name'] in member_role_names:
             colored_role = await guild.create_role(name=GUILD['multi_colored_name'])
-            colored_role_position = guild.get_role(GUILD['colored_role_position'])
             await member.add_roles(colored_role, reason='patreon $8')
             await colored_role.edit(position=colored_role_position.position + 1, reason='position')
+
+            if GUILD['colored_name'] in [role.name for role in member.roles]:
+                colored_role_del = discord.utils.get(member.roles, name=GUILD['colored_name'])
+                await colored_role_del.delete()
+        have_team = False
+        for role in member.roles:
+            if role.name.startswith(GUILD['guild_name']):
+                await member.remove_roles(role, reason='remove from team')
+        if not have_team:
+            guild_role = await guild.create_role(name=GUILD['guild_name'])
+            await member.add_roles(guild_role, reason='patreon $8')
+            await guild_role.edit(position=colored_role_position.position + 1, reason='position')
+            permission_overwrites = {
+                guild.default_role: discord.PermissionOverwrite(read_messages=False),
+                member: discord.PermissionOverwrite(manage_messages=True),
+                guild_role: discord.PermissionOverwrite(read_messages=True)
+            }
+            team_category = guild.get_channel(GUILD['team_category'])
+            new_channel = True
+            for team_channel in team_category.text_channels:
+                if int(team_channel.topic) == member.id:
+                    new_channel = False
+                    await team_channel.edit(overwrite=permission_overwrites)
+                    break
+            if new_channel:
+                team_channel = await team_category.create_text_channel(GUILD['guild_name'],
+                                                                       topic=member.id,
+                                                                       overwrites=permission_overwrites)
+                embed = discord.Embed()
+                embed.set_author(name=member.name, icon_url=member.avatar_url)
+                embed.add_field(name='change team name',
+                                value='{}teamname {}\'s team'.format(BOT['prefix'], member.name), inline=True)
+                embed.add_field(name='add teammate',
+                                value='{}team + <@{}>'.format(BOT['prefix'], member.id), inline=True)
+                embed.add_field(name='kick teammate',
+                                value='{}team - <@{}>'.format(BOT['prefix'], member.id), inline=True)
+                message_to_pin = await team_channel.send(embed=embed)
+                await message_to_pin.pin()
+
     if GUILD['patreon_4_id'] in [role.id for role in new_roles]:
-        print(member_role_names)
         if GUILD['patreon_8_id'] in member_role_ids:
             pass
         else:
